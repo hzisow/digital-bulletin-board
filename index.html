@@ -327,6 +327,19 @@
   .lb-prev { left: 24px; } .lb-next { right: 24px; }
   .lb-count { position: absolute; bottom: 26px; left: 50%; transform: translateX(-50%); color: #fff; font-size: .9rem; background: rgba(0,0,0,.4); padding: 5px 14px; border-radius: 999px; }
 
+  /* ---------- Admin corner button ---------- */
+  .admin-fab {
+    position: fixed; bottom: 14px; right: 14px; z-index: 70;
+    background: rgba(255,255,255,.92); color: var(--muted);
+    border: 1px solid var(--line); border-radius: 999px;
+    padding: 6px 13px; font-size: .76rem; font-weight: 600; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 7px;
+    box-shadow: var(--shadow-sm); transition: background .15s, color .15s, border-color .15s;
+  }
+  .admin-fab:hover { color: var(--ink); border-color: #cdd4e2; }
+  .admin-fab.on { background: var(--deca-blue); color: #fff; border-color: var(--deca-blue); }
+  .admin-fab .ad-dot { width: 7px; height: 7px; border-radius: 50%; background: #2bb673; }
+
   /* ---------- Toast ---------- */
   .toast {
     position: fixed; bottom: 28px; left: 50%; transform: translate(-50%, 20px);
@@ -430,7 +443,6 @@
         <span class="s">Posted by chapters, for chapters</span>
       </div>
       <div class="cta">
-        <span class="auth" id="authArea"></span>
         <a class="btn btn-line" href="https://madeca.org" target="_blank" rel="noopener">
           MA DECA Website
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7"/><path d="M8 7h9v9"/></svg>
@@ -513,27 +525,29 @@
 
   <div class="toast" id="toast"></div>
 
-  <!-- Sign-in modal -->
-  <div class="overlay" id="authOverlay">
-    <div class="modal" style="max-width:430px">
+  <!-- Admin sign-in (corner button) -->
+  <button id="adminFab" class="admin-fab">Admin Sign In</button>
+
+  <!-- Admin modal -->
+  <div class="overlay" id="adminOverlay">
+    <div class="modal" style="max-width:400px">
       <div class="modal-head">
         <span class="dia"></span>
-        <h2>Sign in to post</h2>
-        <button class="close" id="authClose" aria-label="Close">&times;</button>
+        <h2>Admin Sign In</h2>
+        <button class="close" id="adminClose" aria-label="Close">&times;</button>
       </div>
-      <form id="authForm" novalidate>
+      <form id="adminForm" novalidate>
         <div class="modal-body">
-          <p style="margin:0 0 16px;color:var(--muted);font-size:.92rem">Enter your email and we'll send you a secure sign-in link &mdash; no password to remember. Viewing the board is open to everyone; signing in lets you post and manage your chapter's events.</p>
-          <div class="field" data-field="email">
-            <label>Email</label>
-            <input type="email" id="authEmail" placeholder="you@school.org" />
-            <div class="err-msg">Please enter a valid email.</div>
+          <p style="margin:0 0 16px;color:var(--muted);font-size:.92rem">Enter the admin password to manage events. Admins can edit and delete any post; anyone can still add events without signing in.</p>
+          <div class="field" data-field="adminpw">
+            <label>Password</label>
+            <input type="password" id="adminPw" placeholder="Password" autocomplete="current-password" />
+            <div class="err-msg">Incorrect password.</div>
           </div>
-          <div id="authMsg" style="display:none;font-size:.88rem;color:var(--deca-blue);background:#eaf4fc;border:1px solid #cfe6f8;padding:10px 12px;border-radius:var(--r-sm)"></div>
         </div>
         <div class="modal-foot">
-          <button type="button" class="btn btn-ghost" id="authCancel">Cancel</button>
-          <button type="submit" class="btn btn-primary" id="authSubmit">Send sign-in link</button>
+          <button type="button" class="btn btn-ghost" id="adminCancel">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="adminSubmit">Sign in</button>
         </div>
       </form>
     </div>
@@ -655,7 +669,13 @@
   var SUPABASE_URL = "https://esdwajfppazlwzlikuie.supabase.co";
   var SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVzZHdhamZwcGF6bHd6bGlrdWllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3NTU5NzgsImV4cCI6MjA5ODMzMTk3OH0.GX-6TayuoGLuY6MWnrtwqDs8QS3-YUybY6ienHUtboI";
   var BUCKET = "event-photos";
-  var sb = null, currentUser = null, USE_CLOUD = false;
+  var sb = null, USE_CLOUD = false;
+
+  // Admin: posting is open to everyone; editing/deleting is admin-only.
+  // The password is NOT stored here — it is verified server-side by Supabase Auth,
+  // and the database enforces that only this hidden admin account can edit/delete.
+  var ADMIN_EMAIL = "admin@madeca-board.app";
+  var isAdmin = false;
 
   function normalize(e) {
     // migrate single `photo` -> `photos` array; ensure fields exist
@@ -822,7 +842,7 @@
     var foot = e.link
       ? '<a class="btn btn-primary signup" href="'+esc(e.link)+'" target="_blank" rel="noopener">Sign up / Info</a>'
       : '<span class="nolink">No sign-up link</span>';
-    var canEdit = !USE_CLOUD || (currentUser && e.user_id === currentUser.id);
+    var canEdit = isAdmin;
     var ownerBtns = canEdit
       ? '<button class="icon-btn" data-edit="'+e.id+'" title="Edit">'+ICON.edit+'</button>'+
         '<button class="icon-btn del" data-del="'+e.id+'" title="Delete">'+ICON.trash+'</button>'
@@ -901,13 +921,11 @@
     };
 
     if (USE_CLOUD) {
-      if (!currentUser) { closeModal(); openSignIn(); return; }
       var btn = $("submitBtn"); var label = btn.textContent;
       btn.disabled = true; btn.textContent = "Saving…";
       uploadPhotos().then(function (urls) {
         var row = toRow(data, urls);
         if (id) return sb.from("events").update(row).eq("id", id);
-        row.user_id = currentUser.id;
         return sb.from("events").insert(row);
       }).then(function (res) {
         if (res && res.error) throw res.error;
@@ -1137,17 +1155,14 @@
       sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
       USE_CLOUD = true;
       sb.auth.getSession().then(function (res) {
-        currentUser = (res.data && res.data.session) ? res.data.session.user : null;
-        renderAuth(); render();
+        applyAdminFromSession(res.data ? res.data.session : null);
+        render();
       });
       sb.auth.onAuthStateChange(function (_evt, session) {
-        currentUser = session ? session.user : null;
-        renderAuth(); render();
-        if (session) closeSignIn();
+        applyAdminFromSession(session);
       });
       subscribeRealtime();
     }
-    renderAuth();
   }
   function subscribeRealtime() {
     try {
@@ -1189,7 +1204,7 @@
     var tasks = state.photos.map(function (p, i) {
       if (p.indexOf("data:") !== 0) return Promise.resolve(p);
       return fetch(p).then(function (r) { return r.blob(); }).then(function (blob) {
-        var path = (currentUser ? currentUser.id : "anon") + "/" + Date.now() + "-" + i + ".jpg";
+        var path = "events/" + Date.now() + "-" + i + ".jpg";
         return sb.storage.from(BUCKET).upload(path, blob, { contentType: "image/jpeg", upsert: false })
           .then(function (up) {
             if (up.error) throw up.error;
@@ -1200,41 +1215,41 @@
     return Promise.all(tasks);
   }
 
-  // ---------- Auth UI ----------
-  function renderAuth() {
-    var el = $("authArea"); if (!el) return;
-    if (!USE_CLOUD) { el.innerHTML = ""; return; }
-    if (currentUser) {
-      el.innerHTML = '<span class="who">' + esc(currentUser.email || "Signed in") + '</span> &middot; <a href="#" id="signOutLink">Sign out</a>';
-      $("signOutLink").onclick = function (ev) { ev.preventDefault(); signOut(); };
-    } else {
-      el.innerHTML = '<a href="#" id="signInLink">Sign in</a>';
-      $("signInLink").onclick = function (ev) { ev.preventDefault(); openSignIn(); };
-    }
+  // ---------- Admin (password-only; verified server-side by Supabase) ----------
+  function applyAdminFromSession(session) {
+    isAdmin = !!(session && session.user && session.user.email === ADMIN_EMAIL);
+    applyAdminUI();
   }
-  function openSignIn() {
+  function applyAdminUI() {
+    var fab = $("adminFab"); if (!fab) return;
+    if (isAdmin) { fab.classList.add("on"); fab.innerHTML = '<span class="ad-dot"></span> Admin · Sign out'; }
+    else { fab.classList.remove("on"); fab.textContent = "Admin Sign In"; }
+  }
+  function openAdmin() {
     if (!USE_CLOUD) { toast("Backend not configured yet — see SETUP.md"); return; }
-    $("authMsg").style.display = "none"; $("authForm").reset();
-    $("authOverlay").classList.add("open");
-    setTimeout(function () { $("authEmail").focus(); }, 50);
+    var f = document.querySelector('.field[data-field="adminpw"]'); if (f) f.classList.remove("invalid");
+    $("adminForm").reset();
+    $("adminOverlay").classList.add("open");
+    setTimeout(function () { $("adminPw").focus(); }, 50);
   }
-  function closeSignIn() { $("authOverlay").classList.remove("open"); }
-  function signOut() {
-    sb.auth.signOut().then(function () { currentUser = null; renderAuth(); render(); toast("Signed out"); });
-  }
-  function handleAuthSubmit(ev) {
+  function closeAdmin() { $("adminOverlay").classList.remove("open"); }
+  function submitAdmin(ev) {
     ev.preventDefault();
-    var email = $("authEmail").value.trim();
-    var emailField = document.querySelector('.field[data-field="email"]');
-    if (!email || email.indexOf("@") < 1) { if (emailField) emailField.classList.add("invalid"); return; }
-    if (emailField) emailField.classList.remove("invalid");
-    var btn = $("authSubmit"); btn.disabled = true; btn.textContent = "Sending…";
-    sb.auth.signInWithOtp({ email: email, options: { emailRedirectTo: window.location.href } }).then(function (res) {
-      btn.disabled = false; btn.textContent = "Send sign-in link";
-      var m = $("authMsg"); m.style.display = "block";
-      if (res.error) { m.style.color = "var(--danger)"; m.textContent = "Error: " + res.error.message; }
-      else { m.style.color = "var(--deca-blue)"; m.textContent = "✓ Check your email for a sign-in link, then return to this page."; }
+    var pw = $("adminPw").value;
+    var f = document.querySelector('.field[data-field="adminpw"]'); if (f) f.classList.remove("invalid");
+    var btn = $("adminSubmit"); btn.disabled = true; btn.textContent = "Checking…";
+    sb.auth.signInWithPassword({ email: ADMIN_EMAIL, password: pw }).then(function (res) {
+      btn.disabled = false; btn.textContent = "Sign in";
+      if (res.error || !res.data || !res.data.session) {
+        if (f) f.classList.add("invalid");
+        return;
+      }
+      isAdmin = true; applyAdminUI(); closeAdmin(); render();
+      toast("Admin mode on — you can now edit and delete any event");
     });
+  }
+  function signOutAdmin() {
+    sb.auth.signOut().then(function () { isAdmin = false; applyAdminUI(); render(); toast("Admin mode off"); });
   }
 
   function init() {
@@ -1247,19 +1262,20 @@
       logoImg.addEventListener("error", function () { logoImg.style.display = "none"; });
       if (logoImg.complete && logoImg.naturalWidth > 0) logoImg.dispatchEvent(new Event("load"));
     }
-    $("newBtn").addEventListener("click", function () {
-      if (USE_CLOUD && !currentUser) { openSignIn(); return; }
-      openModal(null);
-    });
-    $("authClose").addEventListener("click", closeSignIn);
-    $("authCancel").addEventListener("click", closeSignIn);
-    $("authOverlay").addEventListener("click", function (e) { if (e.target === $("authOverlay")) closeSignIn(); });
-    $("authForm").addEventListener("submit", handleAuthSubmit);
+    $("newBtn").addEventListener("click", function () { openModal(null); });
     $("closeBtn").addEventListener("click", closeModal);
     $("cancelBtn").addEventListener("click", closeModal);
     $("overlay").addEventListener("click", function (e) { if (e.target === $("overlay")) closeModal(); });
-    document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeModal(); });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") { closeModal(); closeAdmin(); } });
     $("eventForm").addEventListener("submit", handleSubmit);
+
+    // admin
+    applyAdminUI();
+    $("adminFab").addEventListener("click", function () { if (isAdmin) signOutAdmin(); else openAdmin(); });
+    $("adminClose").addEventListener("click", closeAdmin);
+    $("adminCancel").addEventListener("click", closeAdmin);
+    $("adminOverlay").addEventListener("click", function (e) { if (e.target === $("adminOverlay")) closeAdmin(); });
+    $("adminForm").addEventListener("submit", submitAdmin);
     $("searchInput").addEventListener("input", function (e) { state.search = e.target.value; render(); });
     $("chapterFilter").addEventListener("change", function (e) { state.chapter = e.target.value; render(); });
     $("sortSelect").addEventListener("change", function (e) { state.sort = e.target.value; render(); });
