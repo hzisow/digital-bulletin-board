@@ -1,74 +1,37 @@
-# MA DECA Chapter Event Board — Backend Setup
+# MA DECA Chapter Event Board
 
-This turns the board into a **shared, multi-device site** using **Supabase** (free, no credit card). Everyone can view the board; people sign in with their email to post and manage their own chapter's events.
+A shared event board for Massachusetts DECA chapters. Anyone can post events; an admin can edit/delete any event.
 
-Total time: ~10 minutes. You do steps in the browser; no coding.
+## Status: backend is already set up ✅
+The Supabase backend (database, photo storage, security rules, and the admin account) is **already created and configured**. The keys are in `index.html`. You don't need to touch Supabase to use the app.
 
----
+## How it works
+- **Anyone can post** an event (no sign-in needed). Posts sync live across all devices.
+- **Admin** (small "Admin Sign In" button, bottom-right) can edit and delete any event.
+  - Password: `Race2Suc3ss68`
+  - This is secure: the password is verified by Supabase's servers (bcrypt-hashed, rate-limited), it is **not** stored in the page, and the database itself only allows the admin account to edit/delete — it can't be bypassed.
+- **Photos** upload to Supabase Storage (not the browser), so there are no size headaches.
 
-## What you'll end up with
-- A free Supabase project (database + image storage + login)
-- The board hosted at a public URL anyone can open
-- Posts and photos that sync live across all devices
+## Deploy it (so others can use it)
+The project lives in the GitHub repo **hzisow/digital-bulletin-board**.
 
----
+**Vercel (recommended):**
+1. Go to https://vercel.com/new
+2. Import the `digital-bulletin-board` repo
+3. Framework Preset: **Other**, leave build settings empty → **Deploy**
+4. You get a public URL like `https://digital-bulletin-board.vercel.app`
 
-## Step 1 — Create a free Supabase project
-1. Go to **https://supabase.com** → **Start your project** → sign in with GitHub or email.
-2. Click **New project**. Pick any name (e.g. `ma-deca-board`), set a database password (save it somewhere), choose a region near you (e.g. East US).
-3. Wait ~2 minutes for it to finish setting up.
+That's it — admin login uses password auth, which needs **no redirect URL configuration**, so there's nothing else to set in Supabase.
 
-## Step 2 — Create the database + storage
-1. In your project, open **SQL Editor** (left sidebar) → **New query**.
-2. Open the file **`supabase-setup.sql`** (in this folder), copy everything, paste it in, and click **Run**.
-3. You should see "Success". This creates the `events` table, the security rules, realtime, and the `event-photos` storage bucket.
+## Making changes later
+Edit `index.html`, then from the project folder:
+```bash
+git add -A && git commit -m "your change" && git push
+```
+Vercel auto-redeploys on every push.
 
-## Step 3 — Turn on email login
-1. Go to **Authentication → Sign In / Providers** (or "Providers").
-2. Make sure **Email** is enabled. (Magic link is on by default — no password needed.)
-3. *(Optional but recommended for less friction during testing:)* Under **Authentication → Providers → Email**, you can leave "Confirm email" on. Magic links work either way.
-
-## Step 4 — Get your two keys
-1. Go to **Project Settings → API**.
-2. Copy the **Project URL** (looks like `https://abcdwxyz.supabase.co`).
-3. Copy the **anon public** key (a long string). *(The anon key is safe to put in the page — your data is protected by the security rules from Step 2. Never use the `service_role` key here.)*
-
-## Step 5 — Paste the keys into the app
-1. Open **`index.html`** in a text editor.
-2. Near the top of the `<script>` section, find the **SUPABASE BACKEND CONFIG** block:
-   ```js
-   var SUPABASE_URL = "";         // e.g. "https://abcdwxyz.supabase.co"
-   var SUPABASE_ANON_KEY = "";    // the long "anon public" key
-   ```
-3. Paste your two values between the quotes. Save.
-
-## Step 6 — Host the page (required for login to work)
-Login links must redirect to a real web address, so the page needs to be online (a `file://` page won't work for sign-in). Pick the easiest free option:
-
-**Option A — Netlify Drop (no account needed, fastest)**
-1. Go to **https://app.netlify.com/drop**.
-2. Drag this whole **`ma-deca-board` folder** onto the page.
-3. You'll instantly get a URL like `https://something.netlify.app`. That's your site.
-
-**Option B — GitHub Pages**
-1. Create a GitHub repo, upload the folder's files.
-2. Settings → Pages → deploy from `main` branch → root. Your URL will be `https://username.github.io/repo`.
-
-## Step 7 — Tell Supabase your site URL
-1. Back in Supabase: **Authentication → URL Configuration**.
-2. Set **Site URL** to your hosted URL from Step 6 (e.g. `https://something.netlify.app`).
-3. Add the same URL under **Redirect URLs** too. Save.
-
-## Step 8 — Try it
-1. Open your hosted URL.
-2. Click **Sign in** (top right), enter your email, and click the link it sends you.
-3. You'll come back signed in — now **Post an Event**. Open the URL on your phone to confirm it shows up everywhere. 🎉
-
----
-
-## Notes
-- **Until you finish setup**, the app runs in local mode (saves only in your browser) so it never appears broken.
-- **Photos** now upload to Supabase Storage (not the browser), so size limits are no longer a concern.
-- **Editing/deleting**: people only see edit/delete buttons on events they created.
-- **Free tier limits** (plenty for a state board): 500MB database, 1GB file storage, 50,000 monthly active users. If a project goes unused for ~1 week it can pause — just open the dashboard to resume.
-- **Re-deploying after edits**: if you change `index.html` later, drag the folder onto Netlify Drop again (or push to GitHub).
+## Project details (for reference)
+- Supabase project: `ma-deca-board` (id `esdwajfppazlwzlikuie`)
+- Admin dashboard: https://supabase.com/dashboard/project/esdwajfppazlwzlikuie
+- To change the admin password later: Supabase dashboard → Authentication → Users → `admin@madeca-board.app` → reset password.
+- `supabase-setup.sql` documents the schema/policies (already applied).
