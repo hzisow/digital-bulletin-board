@@ -1,0 +1,1300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Massachusetts DECA · Chapter Event Board</title>
+<link rel="icon" type="image/png" href="deca-diamond-blue.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    /* Official DECA palette — PMS 285 blue #0072ce + metallic gold #85754e */
+    --deca-blue:  #0072ce;
+    --blue:       #0072ce;
+    --blue-600:   #0061b0;
+    --navy:       #00467e;   /* deep tint of DECA blue for fills */
+    --navy-700:   #003462;
+    --gold:       #3aa6ee;   /* accent rule — bright DECA-family blue */
+    --gold-700:   #1f8fde;
+    --ink:        #1b1f27;   /* near-black (brand black) */
+    --muted:      #5f6877;
+    --line:       #e5e8ef;
+    --line-soft:  #eef1f6;
+    --paper:      #f5f7fa;
+    --card:       #ffffff;
+    --danger:     #c1322c;
+    --r-lg: 14px;
+    --r-md: 10px;
+    --r-sm: 7px;
+    --shadow-sm: 0 1px 2px rgba(16,24,40,.05), 0 1px 3px rgba(16,24,40,.05);
+    --shadow-md: 0 4px 10px rgba(16,24,40,.06), 0 10px 24px rgba(0,43,92,.08);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Source Sans 3", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  h1, h2, h3 { font-family: "Montserrat", system-ui, sans-serif; }
+  button { font-family: inherit; cursor: pointer; }
+  a { color: var(--blue); }
+
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 28px; }
+
+  /* diamond helper */
+  .dia {
+    display: inline-block; width: .58em; height: .58em;
+    background: var(--deca-blue); transform: rotate(45deg);
+    border-radius: 1px; vertical-align: middle;
+  }
+  .utility .dia, footer .dia { background: #fff; }
+
+  /* ---------- Buttons ---------- */
+  .btn {
+    border: none; border-radius: var(--r-sm);
+    padding: 11px 20px; font-weight: 600; font-size: .92rem;
+    letter-spacing: .01em;
+    transition: background .15s ease, color .15s ease, border-color .15s ease;
+    display: inline-flex; align-items: center; gap: 8px; text-decoration: none;
+  }
+  .btn-primary { background: var(--deca-blue); color: #fff; font-weight: 700; }
+  .btn-primary:hover { background: var(--blue-600); }
+  .btn-white { background: #fff; color: var(--deca-blue); font-weight: 700; }
+  .btn-white:hover { background: #eaf3fb; }
+  .btn-line { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.5); font-weight: 600; }
+  .btn-line:hover { background: rgba(255,255,255,.12); border-color: #fff; }
+  .btn-ghost { background: #fff; color: var(--ink); border: 1px solid var(--line); }
+  .btn-ghost:hover { background: var(--paper); border-color: #d6dbe6; }
+
+  /* sign-in control in masthead */
+  .auth { font-size: .88rem; color: #d7e6f8; display: inline-flex; align-items: center; gap: 8px; }
+  .auth a { color: #fff; font-weight: 600; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,.5); }
+  .auth a:hover { border-color: #fff; }
+  .auth .who { color: #bdd4ee; }
+
+  /* ---------- Masthead ---------- */
+  .masthead {
+    background:
+      radial-gradient(130% 150% at 88% -30%, #1f93e6 0%, rgba(31,147,230,0) 55%),
+      linear-gradient(135deg, #0a7fd6 0%, #0061b0 48%, #00467e 100%);
+    color: #fff;
+    border-bottom: 3px solid var(--gold);
+    position: relative;
+    overflow: hidden;
+  }
+  /* authentic DECA diamond texture from the official emblem */
+  .masthead::after {
+    content: "";
+    position: absolute; inset: 0;
+    background: url("deca-diamond-white.png") -20px -24px / 132px 132px repeat;
+    opacity: .06;
+    pointer-events: none;
+  }
+  .masthead .wrap {
+    display: flex; align-items: center; gap: 22px;
+    padding: 24px 28px; position: relative; z-index: 1; flex-wrap: wrap;
+  }
+  .logo { display: flex; align-items: center; gap: 14px; text-decoration: none; }
+  .logo-img { height: 50px; width: auto; display: none; }
+  .logo-img.show { display: block; }
+  .logo-mark { width: 50px; height: 50px; flex-shrink: 0; }
+  .logo-mark g { fill: #fff; }
+  .logo-mark > rect:first-of-type { fill: #fff; }
+  .logo-words { display: flex; flex-direction: column; line-height: .9; }
+  .logo-state { font-size: .8rem; font-weight: 700; letter-spacing: .14em; color: #cfe6fb; font-family: "Montserrat"; }
+  .logo-deca { font-size: 2rem; font-weight: 800; color: #fff; font-family: "Montserrat"; letter-spacing: .01em; }
+  .masthead-divider { width: 1px; height: 42px; background: rgba(255,255,255,.18); }
+  .masthead-label { display: flex; flex-direction: column; }
+  .masthead-label .k { font-family: "Montserrat"; font-weight: 700; font-size: 1.06rem; }
+  .masthead-label .s { font-size: .82rem; color: #b6c6e6; }
+  .masthead .cta { margin-left: auto; }
+
+  /* ---------- Intro / toolbar band ---------- */
+  .controls { background: #fff; border-bottom: 1px solid var(--line); }
+  .controls .wrap { padding: 22px 28px 20px; }
+  .controls-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; flex-wrap: wrap; margin-bottom: 18px; }
+  .controls-top h1 {
+    margin: 0; font-size: 1.5rem; font-weight: 800; letter-spacing: -.01em; color: var(--deca-blue);
+    display: flex; align-items: center; gap: 11px;
+  }
+  .controls-top p { margin: 5px 0 0; color: var(--muted); font-size: .95rem; max-width: 560px; }
+  .stat { text-align: right; }
+  .stat .n { font-family: "Montserrat"; font-weight: 800; font-size: 2rem; color: var(--navy); line-height: 1; }
+  .stat .l { font-size: .72rem; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); font-weight: 600; }
+
+  .toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .search { flex: 1; min-width: 240px; position: relative; }
+  .search input {
+    width: 100%; padding: 11px 14px 11px 40px;
+    border: 1px solid var(--line); border-radius: var(--r-sm);
+    font-size: .94rem; font-family: inherit; background: var(--paper);
+    transition: border-color .15s, background .15s;
+  }
+  .search input::placeholder { color: #97a0b4; }
+  .search input:focus { outline: none; border-color: var(--blue); background: #fff; box-shadow: 0 0 0 3px rgba(20,86,184,.12); }
+  .search::before {
+    content: ""; position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+    width: 16px; height: 16px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23677189' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E") center/contain no-repeat;
+  }
+  select.filter {
+    padding: 11px 36px 11px 14px; border: 1px solid var(--line); border-radius: var(--r-sm);
+    background: var(--paper) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23677189' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") right 13px center/12px no-repeat;
+    font-size: .92rem; color: var(--ink); font-family: inherit; -webkit-appearance: none; appearance: none;
+  }
+  select.filter:focus { outline: none; border-color: var(--blue); background-color: #fff; }
+
+  /* ---------- Category tabs ---------- */
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 16px; }
+  .tab {
+    border: 1px solid var(--line); background: #fff; color: var(--muted);
+    border-radius: var(--r-sm); padding: 7px 14px; font-size: .85rem; font-weight: 600;
+    display: inline-flex; align-items: center; gap: 7px; transition: all .12s;
+  }
+  .tab .dot { width: 8px; height: 8px; border-radius: 2px; transform: rotate(45deg); }
+  .tab:hover { border-color: #cdd4e2; color: var(--ink); }
+  .tab.active { background: var(--deca-blue); border-color: var(--deca-blue); color: #fff; }
+  .tab.active .count { color: #bfe0fa; }
+  .tab .count { color: #9aa3b6; font-weight: 600; }
+
+  /* ---------- Board ---------- */
+  main .wrap { padding: 30px 28px 90px; }
+  .grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 22px;
+  }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg);
+    overflow: hidden; display: flex; flex-direction: column;
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow .18s ease, border-color .18s ease, transform .18s ease;
+  }
+  .card:hover { box-shadow: var(--shadow-md); border-color: #d3dae8; transform: translateY(-2px); }
+
+  .card-photo {
+    position: relative; aspect-ratio: 16 / 9;
+    background-size: cover; background-position: center;
+    background-color: var(--deca-blue);
+    background-image:
+      url("deca-diamond-white.png"),
+      linear-gradient(135deg, #1f8fde, #005ba8);
+    background-repeat: no-repeat, no-repeat;
+    background-position: center, center;
+    background-size: 64px, cover;
+  }
+  .card-photo::before {
+    content: ""; position: absolute; inset: 0;
+    background: url("deca-diamond-white.png") -14px -16px / 100px 100px repeat;
+    opacity: .07;
+  }
+  .card-photo.has-img { background-image: none; }
+  .card-photo.has-img::before { display: none; }
+  .card-photo .frame { position: absolute; inset: 0; box-shadow: inset 0 -40px 50px -30px rgba(0,0,0,.35); }
+  .cat-label {
+    position: absolute; top: 12px; left: 12px;
+    background: #fff; color: var(--ink);
+    font-size: .72rem; font-weight: 700; letter-spacing: .03em;
+    padding: 5px 11px 5px 9px; border-radius: var(--r-sm);
+    display: inline-flex; align-items: center; gap: 7px; box-shadow: var(--shadow-sm);
+  }
+  .cat-label .dot { width: 8px; height: 8px; border-radius: 2px; transform: rotate(45deg); }
+  .date-tab {
+    position: absolute; top: 12px; right: 12px;
+    background: var(--navy); color: #fff; border-radius: var(--r-sm);
+    text-align: center; padding: 6px 11px; line-height: 1; box-shadow: var(--shadow-sm);
+    border-top: 2px solid var(--gold);
+  }
+  .date-tab .mo { font-size: .64rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #bfe0fa; }
+  .date-tab .dy { font-family: "Montserrat"; font-weight: 800; font-size: 1.15rem; margin-top: 2px; }
+
+  .card-body { padding: 17px 19px 19px; display: flex; flex-direction: column; flex: 1; }
+  .card-chapter {
+    font-size: .73rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--blue); display: flex; align-items: center; gap: 8px; margin-bottom: 7px;
+  }
+  .card-chapter .dia { width: .5em; height: .5em; }
+  .card-title { font-size: 1.18rem; font-weight: 700; line-height: 1.25; margin: 0 0 11px; letter-spacing: -.01em; }
+  .card-meta { display: flex; flex-direction: column; gap: 6px; font-size: .86rem; color: var(--muted); margin-bottom: 12px; }
+  .card-meta .row { display: flex; align-items: center; gap: 9px; }
+  .card-meta svg { flex-shrink: 0; color: #9aa3b6; }
+  .card-desc {
+    font-size: .91rem; color: #3c4660; margin: 0 0 14px;
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .ig-flag {
+    display: inline-flex; align-items: center; gap: 7px; align-self: flex-start;
+    font-size: .74rem; font-weight: 600; color: var(--blue-600);
+    background: #eaf4fc; border: 1px solid #cfe6f8;
+    padding: 4px 10px; border-radius: var(--r-sm); margin-bottom: 14px;
+  }
+  .ig-flag svg { color: var(--deca-blue); }
+  .card-foot { margin-top: auto; display: flex; gap: 8px; align-items: center; padding-top: 4px; }
+  .card-foot .signup { flex: 1; justify-content: center; }
+  .nolink { flex: 1; text-align: center; color: var(--muted); font-size: .85rem; border: 1px dashed var(--line); border-radius: var(--r-sm); padding: 10px; }
+  .icon-btn {
+    width: 38px; height: 38px; border-radius: var(--r-sm); border: 1px solid var(--line);
+    background: #fff; display: flex; align-items: center; justify-content: center; color: var(--muted);
+    transition: all .12s;
+  }
+  .icon-btn:hover { background: var(--paper); color: var(--ink); }
+  .icon-btn.del:hover { background: #fdeceb; color: var(--danger); border-color: #f1c4c1; }
+
+  .count-line { font-size: .88rem; color: var(--muted); margin: 0 0 18px; }
+
+  /* ---------- Empty state ---------- */
+  .empty-state { text-align: center; padding: 90px 24px; color: var(--muted); }
+  .empty-state .emblem {
+    width: 72px; height: 72px; margin: 0 auto 22px;
+    background: url("deca-diamond-blue.png") center/contain no-repeat;
+    opacity: .9;
+  }
+  .empty-state h3 { color: var(--ink); margin: 0 0 8px; font-size: 1.3rem; }
+
+  /* ---------- Footer ---------- */
+  footer.site { background: var(--navy); color: #aebfe0; margin-top: 40px; border-top: 4px solid var(--gold); }
+  footer .wrap { padding: 34px 28px; display: flex; justify-content: space-between; align-items: center; gap: 24px; flex-wrap: wrap; }
+  footer .fbrand { display: flex; align-items: center; gap: 12px; color: #fff; font-family: "Montserrat"; font-weight: 700; }
+  footer .flinks { display: flex; gap: 22px; font-size: .9rem; flex-wrap: wrap; }
+  footer .flinks a { color: #cdd9f0; text-decoration: none; }
+  footer .flinks a:hover { color: #fff; }
+  footer .fnote { width: 100%; border-top: 1px solid rgba(255,255,255,.12); padding-top: 16px; font-size: .8rem; color: #8aa0c8; }
+
+  /* ---------- View toggle ---------- */
+  .viewtoggle { display: inline-flex; border: 1px solid var(--line); border-radius: var(--r-sm); overflow: hidden; background: #fff; }
+  .viewtoggle .vt {
+    border: none; background: #fff; color: var(--muted); font-weight: 600; font-size: .9rem;
+    padding: 10px 15px; display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+  }
+  .viewtoggle .vt + .vt { border-left: 1px solid var(--line); }
+  .viewtoggle .vt.active { background: var(--deca-blue); color: #fff; }
+
+  /* ---------- Map ---------- */
+  .map-wrap { border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; box-shadow: var(--shadow-sm); margin-bottom: 6px; }
+  #map { height: 540px; width: 100%; background: #e8eef5; }
+  .deca-marker span {
+    display: block; width: 20px; height: 20px; background: var(--deca-blue);
+    border: 2px solid #fff; transform: rotate(45deg); border-radius: 3px;
+    box-shadow: 0 2px 6px rgba(0,43,92,.5);
+  }
+  .leaflet-popup-content-wrapper { border-radius: var(--r-md); }
+  .leaflet-popup-content { margin: 0; width: 210px !important; font-family: "Source Sans 3", sans-serif; }
+  .pp { overflow: hidden; border-radius: var(--r-md); }
+  .pp-img { height: 96px; background: var(--deca-blue) center/cover no-repeat; }
+  .pp-body { padding: 10px 12px 12px; }
+  .pp-cat { font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--deca-blue); }
+  .pp-title { font-family: "Montserrat"; font-weight: 700; font-size: .98rem; line-height: 1.2; margin: 2px 0 3px; color: var(--ink); }
+  .pp-chap { font-size: .78rem; color: var(--muted); }
+  .pp-meta { font-size: .78rem; color: #45506b; margin-top: 5px; display: flex; gap: 6px; }
+  .pp a { display: inline-block; margin-top: 9px; font-weight: 700; font-size: .82rem; color: var(--deca-blue); text-decoration: none; }
+
+  /* ---------- Photo thumbs (modal) ---------- */
+  .thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 9px; margin-top: 10px; }
+  .thumb { position: relative; aspect-ratio: 1; border-radius: var(--r-sm); overflow: hidden; border: 1px solid var(--line); }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .thumb .x {
+    position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 50%;
+    background: rgba(0,20,46,.78); color: #fff; border: none; font-size: 1rem; line-height: 1; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .thumb .cover-tag { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,114,206,.92); color: #fff; font-size: .62rem; font-weight: 700; text-align: center; padding: 2px; text-transform: uppercase; letter-spacing: .05em; }
+
+  /* photo count badge on card */
+  .photo-count {
+    position: absolute; bottom: 12px; right: 12px; z-index: 2;
+    background: rgba(0,20,46,.72); color: #fff; font-size: .74rem; font-weight: 600;
+    padding: 4px 9px; border-radius: var(--r-sm); display: inline-flex; align-items: center; gap: 6px; backdrop-filter: blur(2px);
+  }
+  .card-photo.has-img { cursor: zoom-in; }
+
+  /* ---------- Lightbox ---------- */
+  .lightbox { position: fixed; inset: 0; background: rgba(0,12,28,.92); z-index: 80; display: none; align-items: center; justify-content: center; }
+  .lightbox.open { display: flex; }
+  .lightbox img { max-width: 90vw; max-height: 86vh; border-radius: 8px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+  .lb-btn { position: absolute; background: rgba(255,255,255,.12); color: #fff; border: none; cursor: pointer; backdrop-filter: blur(3px); }
+  .lb-btn:hover { background: rgba(255,255,255,.24); }
+  .lb-close { top: 22px; right: 26px; width: 44px; height: 44px; border-radius: 50%; font-size: 1.6rem; }
+  .lb-prev, .lb-next { top: 50%; transform: translateY(-50%); width: 52px; height: 52px; border-radius: 50%; font-size: 2rem; line-height: 1; }
+  .lb-prev { left: 24px; } .lb-next { right: 24px; }
+  .lb-count { position: absolute; bottom: 26px; left: 50%; transform: translateX(-50%); color: #fff; font-size: .9rem; background: rgba(0,0,0,.4); padding: 5px 14px; border-radius: 999px; }
+
+  /* ---------- Toast ---------- */
+  .toast {
+    position: fixed; bottom: 28px; left: 50%; transform: translate(-50%, 20px);
+    background: var(--ink); color: #fff; padding: 12px 20px; border-radius: var(--r-sm);
+    font-size: .9rem; font-weight: 500; box-shadow: var(--shadow-md); z-index: 90;
+    opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  /* ---------- Modal ---------- */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,20,46,.55); backdrop-filter: blur(3px);
+    display: none; align-items: flex-start; justify-content: center; padding: 44px 16px; z-index: 60; overflow-y: auto;
+  }
+  .overlay.open { display: flex; }
+  .modal { background: #fff; border-radius: var(--r-lg); width: 100%; max-width: 580px; box-shadow: 0 30px 70px rgba(0,20,46,.3); animation: pop .16s ease; }
+  @keyframes pop { from { transform: translateY(8px) scale(.99); opacity: 0; } to { transform: none; opacity: 1; } }
+  .modal-head { padding: 20px 26px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 12px; }
+  .modal-head .dia { width: 16px; height: 16px; }
+  .modal-head h2 { margin: 0; font-size: 1.28rem; font-weight: 700; }
+  .modal-head .close { margin-left: auto; background: none; border: none; font-size: 1.6rem; color: var(--muted); line-height: 1; padding: 0 4px; }
+  .modal-head .close:hover { color: var(--ink); }
+  .modal-body { padding: 24px 26px; }
+  .field { margin-bottom: 17px; }
+  .field > label { display: block; font-size: .82rem; font-weight: 600; margin-bottom: 6px; color: var(--ink); }
+  .field .req { color: var(--danger); }
+  .field input[type=text], .field input[type=email], .field input[type=url], .field input[type=date], .field input[type=time], .field textarea, .field select {
+    width: 100%; padding: 10px 13px; border: 1px solid var(--line); border-radius: var(--r-sm);
+    font-size: .94rem; font-family: inherit; background: var(--paper); color: var(--ink); transition: border-color .15s, background .15s, box-shadow .15s;
+  }
+  .field input:focus, .field textarea:focus, .field select:focus { outline: none; border-color: var(--blue); background: #fff; box-shadow: 0 0 0 3px rgba(20,86,184,.12); }
+  .field textarea { resize: vertical; min-height: 92px; }
+  .field select { -webkit-appearance: none; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23677189' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 13px center; background-size: 12px; padding-right: 34px; }
+  .field-row { display: flex; gap: 14px; }
+  .field-row .field { flex: 1; }
+  .dropzone { border: 1.5px dashed var(--line); border-radius: var(--r-md); padding: 22px; text-align: center; color: var(--muted); font-size: .9rem; cursor: pointer; transition: border-color .15s, background .15s; }
+  .dropzone:hover, .dropzone.drag { border-color: var(--blue); background: #f4f8ff; }
+  .dropzone strong { color: var(--blue); }
+  .preview-wrap { position: relative; border-radius: var(--r-md); overflow: hidden; }
+  .preview-wrap img { width: 100%; display: block; max-height: 220px; object-fit: cover; }
+  .preview-wrap .remove-photo { position: absolute; top: 10px; right: 10px; background: rgba(0,20,46,.8); color: #fff; border: none; border-radius: var(--r-sm); padding: 6px 12px; font-size: .82rem; font-weight: 600; }
+  .autocomplete { position: relative; }
+  .ac-list {
+    position: absolute; left: 0; right: 0; top: calc(100% + 5px);
+    background: #fff; border: 1px solid var(--line); border-radius: var(--r-sm);
+    box-shadow: var(--shadow-md); z-index: 5; max-height: 250px; overflow-y: auto; display: none;
+  }
+  .ac-list.open { display: block; }
+  .ac-item { padding: 9px 13px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; border-bottom: 1px solid var(--line-soft); }
+  .ac-item:last-child { border-bottom: none; }
+  .ac-item:hover, .ac-item.active { background: #f4f8ff; }
+  .ac-item .pin { color: #9aa3b6; margin-top: 2px; flex-shrink: 0; }
+  .ac-item .txt { display: flex; flex-direction: column; line-height: 1.3; min-width: 0; }
+  .ac-item .main { font-weight: 600; color: var(--ink); font-size: .9rem; }
+  .ac-item .sub { color: var(--muted); font-size: .8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ac-loading { padding: 11px 13px; color: var(--muted); font-size: .85rem; }
+  .ac-hint { font-size: .74rem; color: var(--muted); margin-top: 6px; }
+  .check-field { display: flex; align-items: flex-start; gap: 12px; padding: 14px 15px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--paper); cursor: pointer; font-weight: 400 !important; margin-bottom: 0; }
+  .check-field:hover { border-color: var(--blue); background: #f4f8ff; }
+  .check-field input[type=checkbox] { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--blue); flex-shrink: 0; }
+  .check-field strong { display: block; font-size: .9rem; color: var(--ink); }
+  .check-field small { display: block; color: var(--muted); font-size: .82rem; margin-top: 2px; }
+  .modal-foot { padding: 17px 26px; border-top: 1px solid var(--line); display: flex; justify-content: flex-end; gap: 10px; background: #fcfdff; border-radius: 0 0 var(--r-lg) var(--r-lg); }
+  .err-msg { color: var(--danger); font-size: .82rem; margin-top: 5px; display: none; }
+  .field.invalid input, .field.invalid textarea { border-color: var(--danger); background: #fdf6f5; }
+  .field.invalid .err-msg { display: block; }
+
+  @media (max-width: 620px) {
+    .field-row { flex-direction: column; gap: 0; }
+    .logo-deca { font-size: 1.6rem; }
+    .masthead-divider, .masthead-label { display: none; }
+    .controls-top h1 { font-size: 1.25rem; }
+    .stat { display: none; }
+    .utility .tag { display: none; }
+  }
+</style>
+</head>
+<body>
+  <header class="masthead">
+    <div class="wrap">
+      <a class="logo" href="#" aria-label="Massachusetts DECA">
+        <img class="logo-img" id="logoImg" src="MA+DECA+Logo.webp" alt="Massachusetts DECA" />
+        <svg class="logo-mark" id="logoMark" viewBox="0 0 120 120" aria-hidden="true">
+          <g fill="#fff">
+            <path id="decaBlade" d="M60 60 L60 13 L101 50 Z"/>
+            <use href="#decaBlade" transform="rotate(90 60 60)"/>
+            <use href="#decaBlade" transform="rotate(180 60 60)"/>
+            <use href="#decaBlade" transform="rotate(270 60 60)"/>
+          </g>
+          <rect x="49" y="49" width="22" height="22" transform="rotate(45 60 60)"/>
+          <rect x="55" y="55" width="10" height="10" transform="rotate(45 60 60)" fill="#002b5c"/>
+        </svg>
+        <span class="logo-words" id="logoWords">
+          <span class="logo-state">MASSACHUSETTS</span>
+          <span class="logo-deca">DECA</span>
+        </span>
+      </a>
+      <div class="masthead-divider"></div>
+      <div class="masthead-label">
+        <span class="k">Chapter Event Board</span>
+        <span class="s">Posted by chapters, for chapters</span>
+      </div>
+      <div class="cta">
+        <span class="auth" id="authArea"></span>
+        <a class="btn btn-line" href="https://madeca.org" target="_blank" rel="noopener">
+          MA DECA Website
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7"/><path d="M8 7h9v9"/></svg>
+        </a>
+        <button class="btn btn-white" id="newBtn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Post an Event
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <section class="controls">
+    <div class="wrap">
+      <div class="controls-top">
+        <div>
+          <h1><span class="dia"></span> What's happening across MA DECA</h1>
+          <p>Events, conferences, fundraisers and more &mdash; shared by chapters around the Commonwealth. Find one to attend, or post your own.</p>
+        </div>
+        <div class="stat">
+          <div class="n" id="statNum">0</div>
+          <div class="l">Events posted</div>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="search">
+          <input type="text" id="searchInput" placeholder="Search events, chapters, locations…" />
+        </div>
+        <select class="filter" id="rangeSelect">
+          <option value="all">Any date</option>
+          <option value="upcoming">Upcoming</option>
+          <option value="week">Next 7 days</option>
+          <option value="month">Next 30 days</option>
+          <option value="past">Past events</option>
+        </select>
+        <select class="filter" id="chapterFilter"><option value="">All chapters</option></select>
+        <select class="filter" id="sortSelect">
+          <option value="newest">Recently posted</option>
+          <option value="soonest">Event date (soonest)</option>
+          <option value="chapter">Chapter A&ndash;Z</option>
+        </select>
+        <div class="viewtoggle" id="viewToggle">
+          <button class="vt active" data-view="list" type="button">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            List
+          </button>
+          <button class="vt" data-view="map" type="button">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+            Map
+          </button>
+        </div>
+      </div>
+
+      <div class="tabs" id="catTabs"></div>
+    </div>
+  </section>
+
+  <main>
+    <div class="wrap">
+      <p class="count-line" id="countLine"></p>
+      <div class="map-wrap" id="mapWrap" style="display:none"><div id="map"></div></div>
+      <div class="grid" id="board"></div>
+      <div class="empty-state" id="emptyState" style="display:none">
+        <div class="emblem"></div>
+        <h3>No events on the board yet</h3>
+        <p>Be the first chapter to post. Click <strong>Post an Event</strong> to share what you've got going on.</p>
+      </div>
+    </div>
+  </main>
+
+  <!-- Photo lightbox -->
+  <div class="lightbox" id="lightbox">
+    <button class="lb-btn lb-close" id="lbClose" aria-label="Close">&times;</button>
+    <button class="lb-btn lb-prev" id="lbPrev" aria-label="Previous">&#8249;</button>
+    <img id="lbImg" alt="event photo" />
+    <button class="lb-btn lb-next" id="lbNext" aria-label="Next">&#8250;</button>
+    <div class="lb-count" id="lbCount"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <!-- Sign-in modal -->
+  <div class="overlay" id="authOverlay">
+    <div class="modal" style="max-width:430px">
+      <div class="modal-head">
+        <span class="dia"></span>
+        <h2>Sign in to post</h2>
+        <button class="close" id="authClose" aria-label="Close">&times;</button>
+      </div>
+      <form id="authForm" novalidate>
+        <div class="modal-body">
+          <p style="margin:0 0 16px;color:var(--muted);font-size:.92rem">Enter your email and we'll send you a secure sign-in link &mdash; no password to remember. Viewing the board is open to everyone; signing in lets you post and manage your chapter's events.</p>
+          <div class="field" data-field="email">
+            <label>Email</label>
+            <input type="email" id="authEmail" placeholder="you@school.org" />
+            <div class="err-msg">Please enter a valid email.</div>
+          </div>
+          <div id="authMsg" style="display:none;font-size:.88rem;color:var(--deca-blue);background:#eaf4fc;border:1px solid #cfe6f8;padding:10px 12px;border-radius:var(--r-sm)"></div>
+        </div>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-ghost" id="authCancel">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="authSubmit">Send sign-in link</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <footer class="site">
+    <div class="wrap">
+      <div class="fbrand"><span class="dia" style="width:14px;height:14px"></span> Massachusetts DECA</div>
+      <nav class="flinks">
+        <a href="https://madeca.org" target="_blank" rel="noopener">madeca.org</a>
+        <a href="https://www.deca.org" target="_blank" rel="noopener">DECA Inc.</a>
+        <a href="https://instagram.com/madeca" target="_blank" rel="noopener">@madeca</a>
+      </nav>
+      <div class="fnote">Chapter Event Board &middot; A space for Massachusetts DECA chapters to share events. Posts are saved in your browser on this device.</div>
+    </div>
+  </footer>
+
+  <!-- Modal -->
+  <div class="overlay" id="overlay">
+    <div class="modal">
+      <div class="modal-head">
+        <span class="dia"></span>
+        <h2 id="modalTitle">Post an Event</h2>
+        <button class="close" id="closeBtn" aria-label="Close">&times;</button>
+      </div>
+      <form id="eventForm" novalidate>
+        <div class="modal-body">
+          <input type="hidden" id="editId" />
+          <div class="field-row">
+            <div class="field" data-field="chapter">
+              <label>Chapter / School <span class="req">*</span></label>
+              <input type="text" id="f_chapter" placeholder="e.g. Lexington High DECA" />
+              <div class="err-msg">Please enter your chapter or school.</div>
+            </div>
+            <div class="field">
+              <label>Category</label>
+              <select id="f_category">
+                <option>Conference</option><option>Competition</option><option>Fundraiser</option>
+                <option>Meeting</option><option>Community Service</option><option>Social</option>
+                <option>Workshop</option><option>Other</option>
+              </select>
+            </div>
+          </div>
+          <div class="field" data-field="title">
+            <label>Event Title <span class="req">*</span></label>
+            <input type="text" id="f_title" placeholder="e.g. Fall Leadership Conference" />
+            <div class="err-msg">Please enter an event title.</div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>Date</label><input type="date" id="f_date" /></div>
+            <div class="field"><label>Time</label><input type="time" id="f_time" /></div>
+          </div>
+          <div class="field" data-field="location">
+            <label>Location <span class="req">*</span></label>
+            <div class="autocomplete">
+              <input type="text" id="f_location" placeholder="Start typing an address or place…" autocomplete="off" />
+              <div class="ac-list" id="locSuggest"></div>
+            </div>
+            <div class="err-msg">Please enter a location.</div>
+            <div class="ac-hint">Address suggestions powered by OpenStreetMap</div>
+          </div>
+          <div class="field" data-field="description">
+            <label>Description <span class="req">*</span></label>
+            <textarea id="f_description" placeholder="What's the event about? Who can attend? What should people bring?"></textarea>
+            <div class="err-msg">Please add a short description.</div>
+          </div>
+          <div class="field">
+            <label>Sign-up / Info Link</label>
+            <input type="url" id="f_link" placeholder="https://…" />
+          </div>
+          <div class="field">
+            <label class="check-field">
+              <input type="checkbox" id="f_igRequest" />
+              <span>
+                <strong>Request a feature on the MA DECA Instagram</strong>
+                <small>Ask <a href="https://instagram.com/madeca" target="_blank" rel="noopener">@madeca</a> to share this event with their followers.</small>
+              </span>
+            </label>
+          </div>
+          <div class="field" data-field="photo">
+            <label>Photos <span style="font-weight:400;color:var(--muted)">(add as many as you like)</span></label>
+            <input type="file" id="f_photo" accept="image/*" multiple hidden />
+            <div class="dropzone" id="dropzone">
+              <div>Drag photos here or <strong>click to upload</strong></div>
+              <div style="font-size:.78rem;margin-top:4px;">PNG, JPG or GIF &middot; multiple allowed &middot; stored in your browser</div>
+            </div>
+            <div class="thumbs" id="photoThumbs"></div>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-ghost" id="cancelBtn">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="submitBtn">Post Event</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+
+  var STORAGE_KEY = "ma-deca-board-v1";
+  var CATEGORIES = ["Conference","Competition","Fundraiser","Meeting","Community Service","Social","Workshop","Other"];
+  var CAT_COLOR = {
+    "Conference": "#0a3d8f", "Competition": "#e0a800", "Fundraiser": "#1f9d6b",
+    "Meeting": "#64748b", "Community Service": "#0e8a9b", "Social": "#b5338a",
+    "Workshop": "#d2691e", "Other": "#677189"
+  };
+
+  var state = { events: [], search: "", chapter: "", category: "", sort: "newest", range: "all", view: "list", photos: [] };
+  var locPick = null;            // {label, lat, lng} captured from the address autocomplete
+  var map = null, markerLayer = null, geoCache = {};
+
+  // ============================================================
+  //  SUPABASE BACKEND CONFIG  — paste your project values here.
+  //  Leave blank to keep the app in local (this-device-only) mode.
+  //  See SETUP.md for the step-by-step guide.
+  // ============================================================
+  var SUPABASE_URL = "https://esdwajfppazlwzlikuie.supabase.co";
+  var SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVzZHdhamZwcGF6bHd6bGlrdWllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3NTU5NzgsImV4cCI6MjA5ODMzMTk3OH0.GX-6TayuoGLuY6MWnrtwqDs8QS3-YUybY6ienHUtboI";
+  var BUCKET = "event-photos";
+  var sb = null, currentUser = null, USE_CLOUD = false;
+
+  function normalize(e) {
+    // migrate single `photo` -> `photos` array; ensure fields exist
+    if (!Array.isArray(e.photos)) e.photos = e.photo ? [e.photo] : [];
+    delete e.photo;
+    if (typeof e.lat !== "number") e.lat = null;
+    if (typeof e.lng !== "number") e.lng = null;
+    return e;
+  }
+  function load() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      state.events = (raw ? JSON.parse(raw) : seed()).map(normalize);
+      if (!raw) save();
+    } catch (e) { state.events = []; }
+  }
+  function save() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.events)); }
+    catch (e) { alert("Couldn't save — your browser storage may be full (large photos use a lot of space). Try a smaller image."); }
+  }
+  function seed() {
+    var now = Date.now();
+    return [
+      { id:"demo1", chapter:"Massachusetts DECA", category:"Conference",
+        title:"MA DECA State Career Development Conference",
+        date:"2027-03-04", time:"08:00", location:"Boston Marriott Copley Place, Boston, MA",
+        lat:42.3478, lng:-71.0807,
+        description:"Three days of competitive events, leadership workshops, and networking with chapters from across the state. Qualify here for ICDC! Registration is through your chapter advisor.",
+        link:"https://madeca.org", igRequest:true, photos:[], created:now },
+      { id:"demo2", chapter:"Sample High DECA", category:"Fundraiser",
+        title:"Spirit Week Bake Sale",
+        date:"2026-06-30", time:"11:30", location:"Worcester, MA",
+        lat:42.2626, lng:-71.8023,
+        description:"Stop by our table during all lunch periods! Proceeds fund our trip to the International Career Development Conference. Cash and Venmo accepted.",
+        link:"", igRequest:false, photos:[], created:now - 100000 }
+    ];
+  }
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+  }
+  function uid() { return "e" + Math.random().toString(36).slice(2,10) + Date.now().toString(36); }
+  var MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+  function parseDate(d) {
+    if (!d) return null;
+    var p = d.split("-"); if (p.length !== 3) return null;
+    return new Date(+p[0], +p[1]-1, +p[2]);
+  }
+  function formatDate(d, t) {
+    var dt = parseDate(d); if (!dt) return "";
+    var out = dt.toLocaleDateString("en-US", { weekday:"long", month:"long", day:"numeric", year:"numeric" });
+    if (t) {
+      var tp = t.split(":"), h = +tp[0], ampm = h >= 12 ? "PM" : "AM", h12 = h % 12 || 12;
+      out += " · " + h12 + ":" + tp[1] + " " + ampm;
+    }
+    return out;
+  }
+
+  var ICON = {
+    cal: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+    pin: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
+    edit: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+    trash: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+    ig: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>',
+    share: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>'
+  };
+
+  function rebuildChapterFilter() {
+    var sel = $("chapterFilter"), current = state.chapter, names = {};
+    state.events.forEach(function (e) { if (e.chapter) names[e.chapter] = true; });
+    var list = Object.keys(names).sort(function (a,b) { return a.localeCompare(b); });
+    sel.innerHTML = '<option value="">All chapters</option>' + list.map(function (n) { return '<option value="'+esc(n)+'">'+esc(n)+'</option>'; }).join("");
+    sel.value = current;
+  }
+  function rebuildTabs() {
+    var counts = {};
+    state.events.forEach(function (e) { counts[e.category] = (counts[e.category]||0)+1; });
+    var html = '<button class="tab '+(state.category===""?"active":"")+'" data-cat="">All <span class="count">'+state.events.length+'</span></button>';
+    CATEGORIES.forEach(function (c) {
+      if (!counts[c]) return;
+      html += '<button class="tab '+(state.category===c?"active":"")+'" data-cat="'+esc(c)+'">'+
+        '<span class="dot" style="background:'+CAT_COLOR[c]+'"></span>'+esc(c)+' <span class="count">'+counts[c]+'</span></button>';
+    });
+    $("catTabs").innerHTML = html;
+  }
+  function today0() { var d = new Date(); d.setHours(0,0,0,0); return d; }
+  function inRange(e) {
+    if (state.range === "all") return true;
+    var dt = parseDate(e.date);
+    if (!dt) return false;                       // undated events only show under "Any date"
+    var days = (dt - today0()) / 86400000;
+    if (state.range === "past") return days < 0;
+    if (state.range === "upcoming") return days >= 0;
+    if (state.range === "week") return days >= 0 && days <= 7;
+    if (state.range === "month") return days >= 0 && days <= 30;
+    return true;
+  }
+  function filtered() {
+    var q = state.search.trim().toLowerCase();
+    var list = state.events.filter(function (e) {
+      if (state.chapter && e.chapter !== state.chapter) return false;
+      if (state.category && e.category !== state.category) return false;
+      if (!inRange(e)) return false;
+      if (q) {
+        var hay = (e.title+" "+e.chapter+" "+e.description+" "+(e.location||"")+" "+e.category).toLowerCase();
+        if (hay.indexOf(q) === -1) return false;
+      }
+      return true;
+    });
+    list.sort(function (a,b) {
+      if (state.sort === "newest") return b.created - a.created;
+      if (state.sort === "chapter") return a.chapter.localeCompare(b.chapter);
+      if (state.sort === "soonest") return (a.date||"9999").localeCompare(b.date||"9999");
+      return 0;
+    });
+    return list;
+  }
+  function render() {
+    rebuildChapterFilter(); rebuildTabs();
+    $("statNum").textContent = state.events.length;
+    var list = filtered(), board = $("board"), empty = $("emptyState"), mapWrap = $("mapWrap");
+    var isMap = state.view === "map";
+    mapWrap.style.display = isMap ? "block" : "none";
+    board.style.display = isMap ? "none" : "grid";
+
+    if (state.events.length === 0) {
+      board.innerHTML = ""; empty.style.display = "block"; mapWrap.style.display = "none"; $("countLine").textContent = ""; return;
+    }
+    empty.style.display = "none";
+    $("countLine").textContent = list.length + (list.length === 1 ? " event" : " events") +
+      (list.length !== state.events.length ? " matching your filters" : " on the board");
+
+    if (isMap) { renderMap(list); return; }
+
+    if (list.length === 0) { board.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><h3>No matches</h3><p>Try clearing the search or filters.</p></div>'; return; }
+    board.innerHTML = list.map(cardHTML).join("");
+    Array.prototype.forEach.call(board.querySelectorAll("[data-edit]"), function (b) { b.addEventListener("click", function () { openModal(b.getAttribute("data-edit")); }); });
+    Array.prototype.forEach.call(board.querySelectorAll("[data-del]"), function (b) { b.addEventListener("click", function () { removeEvent(b.getAttribute("data-del")); }); });
+    Array.prototype.forEach.call(board.querySelectorAll("[data-share]"), function (b) { b.addEventListener("click", function () { shareEvent(b.getAttribute("data-share")); }); });
+    Array.prototype.forEach.call(board.querySelectorAll("[data-photos]"), function (el) { el.addEventListener("click", function () { openLightbox(el.getAttribute("data-photos")); }); });
+  }
+  function cardHTML(e) {
+    var color = CAT_COLOR[e.category] || CAT_COLOR.Other;
+    var photos = e.photos || [];
+    var hasImg = photos.length > 0;
+    var photoStyle = hasImg ? ' style="background-image:url(\''+photos[0].replace(/'/g,"%27")+'\')"' : '';
+    var dt = parseDate(e.date);
+    var dateTab = dt ? '<div class="date-tab"><div class="mo">'+MONTHS[dt.getMonth()]+'</div><div class="dy">'+dt.getDate()+'</div></div>' : '';
+    var countBadge = photos.length > 1
+      ? '<span class="photo-count"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>'+photos.length+'</span>'
+      : '';
+    var photoAttr = hasImg ? ' data-photos="'+e.id+'"' : '';
+    var photo = '<div class="card-photo'+(hasImg?' has-img':'')+'"'+photoStyle+photoAttr+'>'+
+        '<div class="frame"></div>'+
+        '<span class="cat-label"><span class="dot" style="background:'+color+'"></span>'+esc(e.category)+'</span>'+
+        dateTab + countBadge +
+      '</div>';
+    var meta = "";
+    if (e.date) meta += '<div class="row">'+ICON.cal+'<span>'+esc(formatDate(e.date, e.time))+'</span></div>';
+    if (e.location) meta += '<div class="row">'+ICON.pin+'<span>'+esc(e.location)+'</span></div>';
+    var igFlag = e.igRequest ? '<div class="ig-flag">'+ICON.ig+'Instagram feature requested</div>' : '';
+    var foot = e.link
+      ? '<a class="btn btn-primary signup" href="'+esc(e.link)+'" target="_blank" rel="noopener">Sign up / Info</a>'
+      : '<span class="nolink">No sign-up link</span>';
+    var canEdit = !USE_CLOUD || (currentUser && e.user_id === currentUser.id);
+    var ownerBtns = canEdit
+      ? '<button class="icon-btn" data-edit="'+e.id+'" title="Edit">'+ICON.edit+'</button>'+
+        '<button class="icon-btn del" data-del="'+e.id+'" title="Delete">'+ICON.trash+'</button>'
+      : '';
+    return '<article class="card">'+photo+
+      '<div class="card-body">'+
+        '<div class="card-chapter"><span class="dia"></span>'+esc(e.chapter)+'</div>'+
+        '<h3 class="card-title">'+esc(e.title)+'</h3>'+
+        (meta ? '<div class="card-meta">'+meta+'</div>' : '')+
+        '<p class="card-desc">'+esc(e.description)+'</p>'+
+        igFlag+
+        '<div class="card-foot">'+foot+
+          '<button class="icon-btn" data-share="'+e.id+'" title="Share">'+ICON.share+'</button>'+
+          ownerBtns +
+        '</div>'+
+      '</div>'+
+    '</article>';
+  }
+
+  function openModal(id) {
+    clearErrors(); state.photos = []; locPick = null;
+    if (id) {
+      var ev = state.events.filter(function (e) { return e.id === id; })[0];
+      if (!ev) return;
+      $("modalTitle").textContent = "Edit Event"; $("submitBtn").textContent = "Save Changes";
+      $("editId").value = ev.id;
+      $("f_chapter").value = ev.chapter||""; $("f_category").value = ev.category||"Other";
+      $("f_title").value = ev.title||""; $("f_date").value = ev.date||""; $("f_time").value = ev.time||"";
+      $("f_location").value = ev.location||""; $("f_description").value = ev.description||"";
+      $("f_link").value = ev.link||""; $("f_igRequest").checked = !!ev.igRequest;
+      state.photos = (ev.photos || []).slice();
+      // keep existing coordinates unless the location text is changed to a new picked address
+      if (typeof ev.lat === "number") locPick = { label: ev.location || "", lat: ev.lat, lng: ev.lng };
+    } else {
+      $("modalTitle").textContent = "Post an Event"; $("submitBtn").textContent = "Post Event";
+      $("eventForm").reset(); $("editId").value = "";
+    }
+    showPhotos();
+    $("overlay").classList.add("open");
+    setTimeout(function () { $("f_chapter").focus(); }, 50);
+  }
+  function closeModal() { $("overlay").classList.remove("open"); }
+  function showPhotos() {
+    var wrap = $("photoThumbs");
+    wrap.innerHTML = state.photos.map(function (src, i) {
+      return '<div class="thumb"><img src="'+src+'" alt="photo '+(i+1)+'" />'+
+        (i === 0 ? '<span class="cover-tag">Cover</span>' : '')+
+        '<button type="button" class="x" data-rm="'+i+'" aria-label="Remove">&times;</button></div>';
+    }).join("");
+    Array.prototype.forEach.call(wrap.querySelectorAll("[data-rm]"), function (b) {
+      b.addEventListener("click", function () { state.photos.splice(+b.getAttribute("data-rm"), 1); showPhotos(); });
+    });
+  }
+  function clearErrors() { Array.prototype.forEach.call(document.querySelectorAll(".field.invalid"), function (f) { f.classList.remove("invalid"); }); }
+  function markInvalid(name) { var f = document.querySelector('.field[data-field="'+name+'"]'); if (f) f.classList.add("invalid"); }
+
+  function handleSubmit(ev) {
+    ev.preventDefault(); clearErrors();
+    var chapter = $("f_chapter").value.trim(), title = $("f_title").value.trim(),
+        desc = $("f_description").value.trim(), location = $("f_location").value.trim(), ok = true;
+    if (!chapter) { markInvalid("chapter"); ok = false; }
+    if (!title) { markInvalid("title"); ok = false; }
+    if (!location) { markInvalid("location"); ok = false; }
+    if (!desc) { markInvalid("description"); ok = false; }
+    if (!ok) { var bad = document.querySelector(".field.invalid input, .field.invalid textarea"); if (bad) bad.focus(); return; }
+    // use coordinates only if the picked address still matches the field text
+    var lat = null, lng = null;
+    if (locPick && locPick.label === location && typeof locPick.lat === "number") { lat = locPick.lat; lng = locPick.lng; }
+
+    var id = $("editId").value;
+    var data = {
+      chapter: chapter, category: $("f_category").value, title: title,
+      date: $("f_date").value, time: $("f_time").value, location: location, lat: lat, lng: lng,
+      description: desc, link: $("f_link").value.trim(), igRequest: $("f_igRequest").checked,
+      photos: state.photos.slice()
+    };
+
+    if (USE_CLOUD) {
+      if (!currentUser) { closeModal(); openSignIn(); return; }
+      var btn = $("submitBtn"); var label = btn.textContent;
+      btn.disabled = true; btn.textContent = "Saving…";
+      uploadPhotos().then(function (urls) {
+        var row = toRow(data, urls);
+        if (id) return sb.from("events").update(row).eq("id", id);
+        row.user_id = currentUser.id;
+        return sb.from("events").insert(row);
+      }).then(function (res) {
+        if (res && res.error) throw res.error;
+        btn.disabled = false; btn.textContent = label;
+        closeModal(); reloadEvents();
+      }).catch(function (err) {
+        btn.disabled = false; btn.textContent = label;
+        alert("Save failed: " + (err && err.message ? err.message : err));
+      });
+      return;
+    }
+
+    // local mode
+    if (id) { state.events = state.events.map(function (e) { return e.id === id ? Object.assign({}, e, data) : e; }); }
+    else { data.id = uid(); data.created = Date.now(); state.events.unshift(data); }
+    save(); closeModal(); render();
+  }
+  function removeEvent(id) {
+    var ev = state.events.filter(function (e) { return e.id === id; })[0];
+    if (!ev) return;
+    if (!confirm('Delete "'+ev.title+'"? This cannot be undone.')) return;
+    if (USE_CLOUD) {
+      sb.from("events").delete().eq("id", id).then(function (res) {
+        if (res.error) { alert("Delete failed: " + res.error.message); return; }
+        reloadEvents();
+      });
+      return;
+    }
+    state.events = state.events.filter(function (e) { return e.id !== id; });
+    save(); render();
+  }
+
+  function addPhotos(files) {
+    Array.prototype.forEach.call(files, function (file) {
+      if (!file || file.type.indexOf("image/") !== 0) return;
+      if (file.size > 6*1024*1024) { alert('"'+file.name+'" is larger than 6MB and was skipped — please use a smaller image.'); return; }
+      var reader = new FileReader();
+      reader.onload = function (e) { downscale(e.target.result, function (url) { state.photos.push(url); showPhotos(); }); };
+      reader.readAsDataURL(file);
+    });
+  }
+  function downscale(dataUrl, cb) {
+    var img = new Image();
+    img.onload = function () {
+      var max = 1000, w = img.width, h = img.height;
+      if (w <= max && h <= max) { cb(dataUrl); return; }
+      var scale = Math.min(max/w, max/h), c = document.createElement("canvas");
+      c.width = Math.round(w*scale); c.height = Math.round(h*scale);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      try { cb(c.toDataURL("image/jpeg", 0.82)); } catch (err) { cb(dataUrl); }
+    };
+    img.onerror = function () { cb(dataUrl); };
+    img.src = dataUrl;
+  }
+
+  // ---------- Location autocomplete (Photon / OpenStreetMap — no API key needed) ----------
+  function setupLocationAutocomplete() {
+    var input = $("f_location"), box = $("locSuggest");
+    var items = [], active = -1, timer = null, reqId = 0;
+
+    function close() { box.classList.remove("open"); box.innerHTML = ""; items = []; active = -1; }
+    function fmt(f) {
+      var p = f.properties || {}, c = (f.geometry && f.geometry.coordinates) || [];
+      var first = p.name || [p.housenumber, p.street].filter(Boolean).join(" ") || p.street || "";
+      var rest = [p.city || p.town || p.village || p.county, p.state, p.postcode, p.country].filter(Boolean).join(", ");
+      if (!first) { first = rest; rest = ""; }
+      return { main: first, sub: rest, full: [first, rest].filter(Boolean).join(", "), lat: c[1], lng: c[0] };
+    }
+    function selectItem(it) {
+      input.value = it.full;
+      locPick = (typeof it.lat === "number") ? { label: it.full, lat: it.lat, lng: it.lng } : null;
+      close();
+    }
+    function fetchSuggest(q) {
+      var mine = ++reqId;
+      // bias toward Massachusetts (lat/lon ~ Worcester) so local results rank first
+      var url = "https://photon.komoot.io/api/?q=" + encodeURIComponent(q) + "&limit=6&lang=en&lat=42.36&lon=-71.66";
+      fetch(url).then(function (r) { return r.json(); }).then(function (data) {
+        if (mine !== reqId) return; // stale response
+        items = (data.features || []).map(fmt).filter(function (x) { return x.full; });
+        renderList();
+      }).catch(function () { close(); });
+    }
+    function renderList() {
+      if (!items.length) { close(); return; }
+      box.innerHTML = items.map(function (it, i) {
+        return '<div class="ac-item" data-i="' + i + '"><span class="pin">' + ICON.pin + '</span>' +
+          '<span class="txt"><span class="main">' + esc(it.main) + '</span>' +
+          (it.sub ? '<span class="sub">' + esc(it.sub) + '</span>' : '') + '</span></div>';
+      }).join("");
+      box.classList.add("open"); active = -1;
+    }
+    function highlight(nodes) { Array.prototype.forEach.call(nodes, function (n, i) { n.classList.toggle("active", i === active); }); }
+
+    input.addEventListener("input", function () {
+      var q = input.value.trim();
+      if (timer) clearTimeout(timer);
+      if (q.length < 3) { close(); return; }
+      box.innerHTML = '<div class="ac-loading">Searching…</div>'; box.classList.add("open");
+      timer = setTimeout(function () { fetchSuggest(q); }, 250);
+    });
+    input.addEventListener("keydown", function (e) {
+      if (!box.classList.contains("open")) return;
+      var nodes = box.querySelectorAll(".ac-item");
+      if (e.key === "ArrowDown") { e.preventDefault(); active = Math.min(active + 1, nodes.length - 1); highlight(nodes); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); active = Math.max(active - 1, 0); highlight(nodes); }
+      else if (e.key === "Enter" && active >= 0) { e.preventDefault(); selectItem(items[active]); }
+      else if (e.key === "Escape") { close(); }
+    });
+    box.addEventListener("mousedown", function (e) {
+      var el = e.target.closest(".ac-item"); if (!el) return;
+      e.preventDefault();
+      var it = items[+el.getAttribute("data-i")];
+      if (it) selectItem(it);
+    });
+    // typing a different address invalidates the previously picked coordinates
+    input.addEventListener("input", function () { if (locPick && input.value.trim() !== locPick.label) locPick = null; });
+    input.addEventListener("blur", function () { setTimeout(close, 150); });
+  }
+
+  // ---------- Map (Leaflet + OpenStreetMap) ----------
+  function ensureMap() {
+    if (map || typeof L === "undefined") return;
+    map = L.map("map", { scrollWheelZoom: false }).setView([42.2, -71.7], 8);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+    markerLayer = L.layerGroup().addTo(map);
+  }
+  function popupHTML(e) {
+    var img = (e.photos && e.photos[0]) ? '<div class="pp-img" style="background-image:url(\''+e.photos[0].replace(/'/g,"%27")+'\')"></div>' : '';
+    var when = e.date ? '<div class="pp-meta">'+ICON.cal+'<span>'+esc(formatDate(e.date, e.time))+'</span></div>' : '';
+    var where = e.location ? '<div class="pp-meta">'+ICON.pin+'<span>'+esc(e.location)+'</span></div>' : '';
+    var link = e.link ? '<a href="'+esc(e.link)+'" target="_blank" rel="noopener">Sign up / Info &rarr;</a>' : '';
+    return '<div class="pp">'+img+'<div class="pp-body">'+
+      '<div class="pp-cat">'+esc(e.category)+'</div>'+
+      '<div class="pp-title">'+esc(e.title)+'</div>'+
+      '<div class="pp-chap">'+esc(e.chapter)+'</div>'+ when + where + link +
+      '</div></div>';
+  }
+  function geocode(q, cb) {
+    var key = q.toLowerCase();
+    if (geoCache[key] !== undefined) { cb(geoCache[key]); return; }
+    fetch("https://photon.komoot.io/api/?q=" + encodeURIComponent(q) + "&limit=1&lat=42.36&lon=-71.66")
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        var f = (d.features || [])[0], c = f && f.geometry && f.geometry.coordinates;
+        geoCache[key] = c ? { lat: c[1], lng: c[0] } : null;
+        cb(geoCache[key]);
+      }).catch(function () { geoCache[key] = null; cb(null); });
+  }
+  function renderMap(list) {
+    ensureMap();
+    if (!map) return;
+    markerLayer.clearLayers();
+    var pts = [];
+    function fit() { if (pts.length) map.fitBounds(pts, { padding: [45, 45], maxZoom: 14 }); }
+    function place(e, lat, lng) {
+      var icon = L.divIcon({ className: "deca-marker", html: "<span></span>", iconSize: [20, 20], iconAnchor: [10, 10] });
+      L.marker([lat, lng], { icon: icon }).addTo(markerLayer).bindPopup(popupHTML(e));
+      pts.push([lat, lng]); fit();
+    }
+    list.forEach(function (e) {
+      if (typeof e.lat === "number" && typeof e.lng === "number") { place(e, e.lat, e.lng); }
+      else if (e.location) { geocode(e.location, function (c) { if (c) place(e, c.lat, c.lng); }); }
+    });
+    setTimeout(function () { map.invalidateSize(); fit(); }, 80);
+  }
+
+  // ---------- Share ----------
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).catch(function(){}); return; }
+    var ta = document.createElement("textarea"); ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); } catch (e) {}
+    document.body.removeChild(ta);
+  }
+  function shareEvent(id) {
+    var e = state.events.filter(function (x) { return x.id === id; })[0];
+    if (!e) return;
+    var lines = [
+      e.title, "Hosted by " + e.chapter,
+      e.date ? formatDate(e.date, e.time) : "",
+      e.location ? "Location: " + e.location : "",
+      e.link ? "Sign up: " + e.link : ""
+    ].filter(Boolean);
+    var text = lines.join("\n");
+    if (navigator.share) {
+      navigator.share({ title: e.title + " — MA DECA", text: text, url: e.link || undefined }).catch(function () {});
+    } else {
+      copyText(text); toast("Event details copied to clipboard");
+    }
+  }
+
+  // ---------- Lightbox ----------
+  var lb = { photos: [], i: 0 };
+  function openLightbox(id) {
+    var e = state.events.filter(function (x) { return x.id === id; })[0];
+    if (!e || !e.photos || !e.photos.length) return;
+    lb.photos = e.photos; lb.i = 0;
+    showLb(); $("lightbox").classList.add("open");
+  }
+  function showLb() {
+    $("lbImg").src = lb.photos[lb.i];
+    var multi = lb.photos.length > 1;
+    $("lbPrev").style.display = multi ? "block" : "none";
+    $("lbNext").style.display = multi ? "block" : "none";
+    $("lbCount").style.display = multi ? "block" : "none";
+    $("lbCount").textContent = (lb.i + 1) + " / " + lb.photos.length;
+  }
+  function lbStep(d) { lb.i = (lb.i + d + lb.photos.length) % lb.photos.length; showLb(); }
+  function closeLb() { $("lightbox").classList.remove("open"); }
+
+  // ---------- Toast ----------
+  var toastTimer = null;
+  function toast(msg) {
+    var t = $("toast"); t.textContent = msg; t.classList.add("show");
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove("show"); }, 2400);
+  }
+
+  // ============================================================
+  //  Backend (Supabase) — falls back to localStorage if unconfigured
+  // ============================================================
+  function initBackend() {
+    if (SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase && window.supabase.createClient) {
+      sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      USE_CLOUD = true;
+      sb.auth.getSession().then(function (res) {
+        currentUser = (res.data && res.data.session) ? res.data.session.user : null;
+        renderAuth(); render();
+      });
+      sb.auth.onAuthStateChange(function (_evt, session) {
+        currentUser = session ? session.user : null;
+        renderAuth(); render();
+        if (session) closeSignIn();
+      });
+      subscribeRealtime();
+    }
+    renderAuth();
+  }
+  function subscribeRealtime() {
+    try {
+      sb.channel("events-rt")
+        .on("postgres_changes", { event: "*", schema: "public", table: "events" }, function () { reloadEvents(); })
+        .subscribe();
+    } catch (e) { /* realtime optional */ }
+  }
+  function fromRow(r) {
+    return {
+      id: r.id, user_id: r.user_id, chapter: r.chapter, category: r.category, title: r.title,
+      date: r.date || "", time: r.time || "", location: r.location || "",
+      lat: (typeof r.lat === "number") ? r.lat : null, lng: (typeof r.lng === "number") ? r.lng : null,
+      description: r.description || "", link: r.link || "", igRequest: !!r.ig_request,
+      photos: r.photos || [], created: r.created_at ? new Date(r.created_at).getTime() : 0
+    };
+  }
+  function toRow(d, photos) {
+    return {
+      chapter: d.chapter, category: d.category, title: d.title,
+      date: d.date || null, time: d.time || null, location: d.location,
+      lat: d.lat, lng: d.lng, description: d.description, link: d.link || null,
+      ig_request: d.igRequest, photos: photos
+    };
+  }
+  function reloadEvents() {
+    if (USE_CLOUD) {
+      sb.from("events").select("*").order("created_at", { ascending: false }).then(function (res) {
+        if (res.error) { console.error(res.error); toast("Couldn't load events"); return; }
+        state.events = (res.data || []).map(fromRow);
+        render();
+      });
+    } else {
+      load(); render();
+    }
+  }
+  function uploadPhotos() {
+    // returns a Promise<string[]> of public URLs; new (data:) photos get uploaded, existing URLs pass through
+    var tasks = state.photos.map(function (p, i) {
+      if (p.indexOf("data:") !== 0) return Promise.resolve(p);
+      return fetch(p).then(function (r) { return r.blob(); }).then(function (blob) {
+        var path = (currentUser ? currentUser.id : "anon") + "/" + Date.now() + "-" + i + ".jpg";
+        return sb.storage.from(BUCKET).upload(path, blob, { contentType: "image/jpeg", upsert: false })
+          .then(function (up) {
+            if (up.error) throw up.error;
+            return sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+          });
+      });
+    });
+    return Promise.all(tasks);
+  }
+
+  // ---------- Auth UI ----------
+  function renderAuth() {
+    var el = $("authArea"); if (!el) return;
+    if (!USE_CLOUD) { el.innerHTML = ""; return; }
+    if (currentUser) {
+      el.innerHTML = '<span class="who">' + esc(currentUser.email || "Signed in") + '</span> &middot; <a href="#" id="signOutLink">Sign out</a>';
+      $("signOutLink").onclick = function (ev) { ev.preventDefault(); signOut(); };
+    } else {
+      el.innerHTML = '<a href="#" id="signInLink">Sign in</a>';
+      $("signInLink").onclick = function (ev) { ev.preventDefault(); openSignIn(); };
+    }
+  }
+  function openSignIn() {
+    if (!USE_CLOUD) { toast("Backend not configured yet — see SETUP.md"); return; }
+    $("authMsg").style.display = "none"; $("authForm").reset();
+    $("authOverlay").classList.add("open");
+    setTimeout(function () { $("authEmail").focus(); }, 50);
+  }
+  function closeSignIn() { $("authOverlay").classList.remove("open"); }
+  function signOut() {
+    sb.auth.signOut().then(function () { currentUser = null; renderAuth(); render(); toast("Signed out"); });
+  }
+  function handleAuthSubmit(ev) {
+    ev.preventDefault();
+    var email = $("authEmail").value.trim();
+    var emailField = document.querySelector('.field[data-field="email"]');
+    if (!email || email.indexOf("@") < 1) { if (emailField) emailField.classList.add("invalid"); return; }
+    if (emailField) emailField.classList.remove("invalid");
+    var btn = $("authSubmit"); btn.disabled = true; btn.textContent = "Sending…";
+    sb.auth.signInWithOtp({ email: email, options: { emailRedirectTo: window.location.href } }).then(function (res) {
+      btn.disabled = false; btn.textContent = "Send sign-in link";
+      var m = $("authMsg"); m.style.display = "block";
+      if (res.error) { m.style.color = "var(--danger)"; m.textContent = "Error: " + res.error.message; }
+      else { m.style.color = "var(--deca-blue)"; m.textContent = "✓ Check your email for a sign-in link, then return to this page."; }
+    });
+  }
+
+  function init() {
+    initBackend();
+    reloadEvents();
+    setupLocationAutocomplete();
+    var logoImg = $("logoImg");
+    if (logoImg) {
+      logoImg.addEventListener("load", function () { logoImg.classList.add("show"); $("logoMark").style.display = "none"; $("logoWords").style.display = "none"; });
+      logoImg.addEventListener("error", function () { logoImg.style.display = "none"; });
+      if (logoImg.complete && logoImg.naturalWidth > 0) logoImg.dispatchEvent(new Event("load"));
+    }
+    $("newBtn").addEventListener("click", function () {
+      if (USE_CLOUD && !currentUser) { openSignIn(); return; }
+      openModal(null);
+    });
+    $("authClose").addEventListener("click", closeSignIn);
+    $("authCancel").addEventListener("click", closeSignIn);
+    $("authOverlay").addEventListener("click", function (e) { if (e.target === $("authOverlay")) closeSignIn(); });
+    $("authForm").addEventListener("submit", handleAuthSubmit);
+    $("closeBtn").addEventListener("click", closeModal);
+    $("cancelBtn").addEventListener("click", closeModal);
+    $("overlay").addEventListener("click", function (e) { if (e.target === $("overlay")) closeModal(); });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeModal(); });
+    $("eventForm").addEventListener("submit", handleSubmit);
+    $("searchInput").addEventListener("input", function (e) { state.search = e.target.value; render(); });
+    $("chapterFilter").addEventListener("change", function (e) { state.chapter = e.target.value; render(); });
+    $("sortSelect").addEventListener("change", function (e) { state.sort = e.target.value; render(); });
+    $("rangeSelect").addEventListener("change", function (e) { state.range = e.target.value; render(); });
+    $("catTabs").addEventListener("click", function (e) { var b = e.target.closest("[data-cat]"); if (!b) return; state.category = b.getAttribute("data-cat"); render(); });
+    $("viewToggle").addEventListener("click", function (e) {
+      var b = e.target.closest("[data-view]"); if (!b) return;
+      state.view = b.getAttribute("data-view");
+      Array.prototype.forEach.call($("viewToggle").querySelectorAll(".vt"), function (v) { v.classList.toggle("active", v === b); });
+      render();
+    });
+
+    var dz = $("dropzone");
+    dz.addEventListener("click", function () { $("f_photo").click(); });
+    $("f_photo").addEventListener("change", function (e) { if (e.target.files.length) addPhotos(e.target.files); e.target.value = ""; });
+    ["dragenter","dragover"].forEach(function (n) { dz.addEventListener(n, function (e) { e.preventDefault(); dz.classList.add("drag"); }); });
+    ["dragleave","drop"].forEach(function (n) { dz.addEventListener(n, function (e) { e.preventDefault(); dz.classList.remove("drag"); }); });
+    dz.addEventListener("drop", function (e) { if (e.dataTransfer.files && e.dataTransfer.files.length) addPhotos(e.dataTransfer.files); });
+
+    // lightbox controls
+    $("lbClose").addEventListener("click", closeLb);
+    $("lbPrev").addEventListener("click", function () { lbStep(-1); });
+    $("lbNext").addEventListener("click", function () { lbStep(1); });
+    $("lightbox").addEventListener("click", function (e) { if (e.target === $("lightbox")) closeLb(); });
+    document.addEventListener("keydown", function (e) {
+      if (!$("lightbox").classList.contains("open")) return;
+      if (e.key === "Escape") closeLb();
+      else if (e.key === "ArrowLeft") lbStep(-1);
+      else if (e.key === "ArrowRight") lbStep(1);
+    });
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+  else init();
+})();
+</script>
+</body>
+</html>
