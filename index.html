@@ -449,13 +449,45 @@
   .field.invalid input, .field.invalid textarea { border-color: var(--danger); background: #fdf6f5; }
   .field.invalid .err-msg { display: block; }
 
-  @media (max-width: 620px) {
-    .field-row { flex-direction: column; gap: 0; }
-    .logo-deca { font-size: 1.6rem; }
+  /* ---------- Responsive ---------- */
+  @media (max-width: 900px) {
+    .wrap { padding-left: 20px; padding-right: 20px; }
+    .grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+  }
+  @media (max-width: 700px) {
+    .masthead .wrap { padding: 15px 18px; gap: 12px; }
+    .logo-img { height: 40px; }
+    .logo-mark { width: 42px; height: 42px; }
     .masthead-divider, .masthead-label { display: none; }
-    .controls-top h1 { font-size: 1.25rem; }
+    .masthead .cta { width: 100%; flex-wrap: wrap; gap: 10px; }
+    .controls .wrap { padding: 18px 18px 16px; }
+    .controls-top h1 { font-size: 1.2rem; }
     .stat { display: none; }
-    .utility .tag { display: none; }
+    main .wrap { padding: 22px 18px 72px; }
+    .grid { grid-template-columns: 1fr; gap: 18px; }
+    #map { height: 400px; }
+    .search { min-width: 100%; }
+    select.filter { flex: 1 1 42%; }
+    .viewtoggle { width: 100%; }
+    .viewtoggle .vt { flex: 1; }
+    .field-row { flex-direction: column; gap: 0; }
+    .overlay { padding: 24px 14px; }
+  }
+  @media (max-width: 430px) {
+    .logo-img { height: 34px; }
+    .logo-deca { font-size: 1.45rem; }
+    .masthead .cta { flex-direction: column; align-items: stretch; }
+    .masthead .cta .btn, .masthead .cta .auth { width: 100%; }
+    .masthead .cta .auth .btn { width: 100%; }
+    .user-chip { width: 100%; justify-content: flex-start; }
+    select.filter { flex: 1 1 100%; }
+    .card-title { font-size: 1.1rem; }
+    .overlay { padding: 14px 10px; }
+    .modal-body { padding: 20px 18px; }
+    .lb-prev, .lb-next { width: 42px; height: 42px; font-size: 1.5rem; }
+    .lb-prev { left: 8px; } .lb-next { right: 8px; }
+    .lb-close { top: 12px; right: 14px; }
+    .admin-fab { bottom: 10px; right: 10px; }
   }
 </style>
 </head>
