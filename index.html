@@ -241,6 +241,8 @@
   }
   .card-chapter .dia { width: .5em; height: .5em; }
   .card-title { font-size: 1.18rem; font-weight: 700; line-height: 1.25; margin: 0 0 11px; letter-spacing: -.01em; }
+  .card-title[data-detail] { cursor: pointer; }
+  .card-title[data-detail]:hover { color: var(--deca-blue); }
   .card-meta { display: flex; flex-direction: column; gap: 6px; font-size: .86rem; color: var(--muted); margin-bottom: 12px; }
   .card-meta .row { display: flex; align-items: center; gap: 9px; }
   .card-meta svg { flex-shrink: 0; color: #9aa3b6; }
@@ -427,6 +429,22 @@
   .rec-note { text-align: center; font-size: .8rem; color: var(--blue-600); background: #eef6fd; border: 1px solid #d5e8f8; border-radius: var(--r-sm); padding: 8px 12px; margin-top: 12px; }
   .or-divider { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; margin: 18px 0 6px; }
   .or-divider::before, .or-divider::after { content: ""; height: 1px; background: var(--line); flex: 1; }
+
+  /* ---------- Event detail modal ---------- */
+  .detail-modal { position: relative; overflow: hidden; padding: 0; }
+  .detail-modal .close-abs {
+    position: absolute; top: 12px; right: 12px; z-index: 3;
+    width: 36px; height: 36px; border-radius: 50%; border: none; cursor: pointer;
+    background: rgba(0,20,46,.55); color: #fff; font-size: 1.4rem; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .detail-modal .close-abs:hover { background: rgba(0,20,46,.75); }
+  #detailBody .card-photo { border-radius: 0; cursor: zoom-in; }
+  #detailBody .card-photo:not(.has-img) { cursor: default; }
+  .detail-inner { padding: 20px 26px 26px; }
+  .detail-title { font-family: "Montserrat"; font-weight: 800; font-size: 1.5rem; line-height: 1.2; margin: 4px 0 12px; color: var(--ink); letter-spacing: -.01em; }
+  .detail-desc { font-size: .97rem; color: #3c4660; white-space: pre-wrap; word-break: break-word; margin: 14px 0 20px; line-height: 1.6; }
+  .detail-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 
   /* ---------- Modal ---------- */
   .overlay {
@@ -715,6 +733,14 @@
     </div>
   </div>
 
+  <!-- Event detail (shareable) -->
+  <div class="overlay" id="detailOverlay">
+    <div class="modal detail-modal" style="max-width:560px">
+      <button class="close-abs" id="detailClose" aria-label="Close">&times;</button>
+      <div id="detailBody"></div>
+    </div>
+  </div>
+
   <!-- Instagram Requests modal (admin) -->
   <div class="overlay" id="igOverlay">
     <div class="modal" style="max-width:640px">
@@ -837,6 +863,7 @@
   var state = { events: [], search: "", chapter: "", category: "", sort: "newest", range: "all", view: "list", photos: [] };
   var locPick = null;            // {label, lat, lng} captured from the address autocomplete
   var map = null, markerLayer = null, geoCache = {};
+  var pendingEventId = null;   // event id from a shared ?event=... link
 
   // ============================================================
   //  SUPABASE BACKEND CONFIG  — paste your project values here.
@@ -1003,6 +1030,7 @@
     Array.prototype.forEach.call(board.querySelectorAll("[data-share]"), function (b) { b.addEventListener("click", function () { shareEvent(b.getAttribute("data-share")); }); });
     Array.prototype.forEach.call(board.querySelectorAll("[data-pin]"), function (b) { b.addEventListener("click", function () { togglePin(b.getAttribute("data-pin")); }); });
     Array.prototype.forEach.call(board.querySelectorAll("[data-photos]"), function (el) { el.addEventListener("click", function () { openLightbox(el.getAttribute("data-photos")); }); });
+    Array.prototype.forEach.call(board.querySelectorAll("[data-detail]"), function (el) { el.addEventListener("click", function () { openDetail(el.getAttribute("data-detail")); }); });
   }
   function cardHTML(e) {
     var color = CAT_COLOR[e.category] || CAT_COLOR.Other;
@@ -1043,7 +1071,7 @@
     return '<article class="card'+(e.pinned?' card-pinned':'')+'">'+photo+
       '<div class="card-body">'+
         '<div class="card-chapter"><span class="dia"></span>'+esc(e.chapter)+'</div>'+
-        '<h3 class="card-title">'+esc(e.title)+'</h3>'+
+        '<h3 class="card-title" data-detail="'+e.id+'">'+esc(e.title)+'</h3>'+
         (meta ? '<div class="card-meta">'+meta+'</div>' : '')+
         '<p class="card-desc">'+esc(e.description)+'</p>'+
         igFlag+
@@ -1298,20 +1326,66 @@
     try { document.execCommand("copy"); } catch (e) {}
     document.body.removeChild(ta);
   }
+  function eventUrl(id) {
+    var base = (location.origin && location.origin !== "null") ? location.origin + location.pathname : location.href.split("?")[0];
+    return base + "?event=" + encodeURIComponent(id);
+  }
   function shareEvent(id) {
     var e = state.events.filter(function (x) { return x.id === id; })[0];
     if (!e) return;
-    var lines = [
-      e.title, "Hosted by " + e.chapter,
-      e.date ? formatDate(e.date, e.time) : "",
-      e.location ? "Location: " + e.location : "",
-      e.link ? "Sign up: " + e.link : ""
-    ].filter(Boolean);
-    var text = lines.join("\n");
+    var url = eventUrl(id);
+    var text = e.title + " — " + e.chapter + (e.date ? " · " + formatDate(e.date, e.time) : "") + "\n" + url;
     if (navigator.share) {
-      navigator.share({ title: e.title + " — MA DECA", text: text, url: e.link || undefined }).catch(function () {});
+      navigator.share({ title: e.title + " — MA DECA", text: e.title + " — " + e.chapter, url: url }).catch(function () {});
     } else {
-      copyText(text); toast("Event details copied to clipboard");
+      copyText(url); toast("Link copied — share it with friends!");
+    }
+  }
+
+  // ---------- Event detail view (shareable) ----------
+  function openDetail(id) {
+    var e = state.events.filter(function (x) { return x.id === id; })[0];
+    if (!e) return;
+    var photos = e.photos || [], color = CAT_COLOR[e.category] || CAT_COLOR.Other;
+    var dt = parseDate(e.date);
+    var dateTab = dt ? '<div class="date-tab"><div class="mo">'+MONTHS[dt.getMonth()]+'</div><div class="dy">'+dt.getDate()+'</div></div>' : '';
+    var countBadge = photos.length > 1 ? '<span class="photo-count">'+photos.length+' photos</span>' : '';
+    var catLabel = '<span class="cat-label"><span class="dot" style="background:'+color+'"></span>'+esc(e.category)+'</span>';
+    var hero = photos.length
+      ? '<div class="card-photo has-img" style="background-image:url(\''+photos[0].replace(/'/g,"%27")+'\')" data-photos="'+e.id+'"><div class="frame"></div>'+catLabel+dateTab+countBadge+'</div>'
+      : '<div class="card-photo"><div class="frame"></div>'+catLabel+dateTab+'</div>';
+    var meta = "";
+    if (e.date) meta += '<div class="row">'+ICON.cal+'<span>'+esc(formatDate(e.date, e.time))+'</span></div>';
+    if (e.location) meta += '<div class="row">'+ICON.pin+'<span>'+esc(e.location)+'</span></div>';
+    var igFlag = e.igRequest
+      ? (e.igPosted ? '<div class="ig-flag posted">'+ICON.ig+'Featured on Instagram</div>' : '<div class="ig-flag">'+ICON.ig+'Instagram feature requested</div>')
+      : '';
+    var signup = e.link ? '<a class="btn btn-primary" href="'+esc(e.link)+'" target="_blank" rel="noopener">Sign up / Info</a>' : '';
+    $("detailBody").innerHTML = hero +
+      '<div class="detail-inner">'+
+        '<div class="card-chapter"><span class="dia"></span>'+esc(e.chapter)+'</div>'+
+        '<h2 class="detail-title">'+esc(e.title)+'</h2>'+
+        (meta ? '<div class="card-meta">'+meta+'</div>' : '')+
+        igFlag +
+        '<p class="detail-desc">'+esc(e.description)+'</p>'+
+        '<div class="detail-actions">'+signup+
+          '<button class="btn btn-ghost" id="detailShare">'+ICON.share+'Share</button>'+
+        '</div>'+
+      '</div>';
+    var ph = $("detailBody").querySelector("[data-photos]");
+    if (ph) ph.addEventListener("click", function () { openLightbox(e.id); });
+    $("detailShare").addEventListener("click", function () { shareEvent(e.id); });
+    $("detailOverlay").classList.add("open");
+  }
+  function closeDetail() { $("detailOverlay").classList.remove("open"); }
+  function getParam(k) { try { return new URLSearchParams(location.search).get(k); } catch (e) { return null; } }
+  function openSharedIfAny() {
+    if (!pendingEventId) return;
+    var e = state.events.filter(function (x) { return x.id === pendingEventId; })[0];
+    if (e) {
+      openDetail(pendingEventId);
+      pendingEventId = null;
+      try { history.replaceState({}, "", location.pathname); } catch (err) {}
     }
   }
 
@@ -1388,10 +1462,10 @@
       sb.from("events").select("*").order("created_at", { ascending: false }).then(function (res) {
         if (res.error) { console.error(res.error); toast("Couldn't load events"); return; }
         state.events = (res.data || []).map(fromRow);
-        render();
+        render(); openSharedIfAny();
       });
     } else {
-      load(); render();
+      load(); render(); openSharedIfAny();
     }
   }
   function uploadPhotos() {
@@ -1603,6 +1677,7 @@
   }
 
   function init() {
+    pendingEventId = getParam("event");
     initBackend();
     reloadEvents();
     setupLocationAutocomplete();
@@ -1619,7 +1694,7 @@
     $("closeBtn").addEventListener("click", closeModal);
     $("cancelBtn").addEventListener("click", closeModal);
     $("overlay").addEventListener("click", function (e) { if (e.target === $("overlay")) closeModal(); });
-    document.addEventListener("keydown", function (e) { if (e.key === "Escape") { closeModal(); closeAdmin(); closeMember(); closeIg(); } });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") { closeModal(); closeAdmin(); closeMember(); closeIg(); closeDetail(); } });
     $("eventForm").addEventListener("submit", handleSubmit);
 
     // member sign-in / sign-up
@@ -1643,6 +1718,10 @@
     $("igReqBtn").addEventListener("click", openIg);
     $("igClose").addEventListener("click", closeIg);
     $("igOverlay").addEventListener("click", function (e) { if (e.target === $("igOverlay")) closeIg(); });
+
+    // Event detail (shareable link)
+    $("detailClose").addEventListener("click", closeDetail);
+    $("detailOverlay").addEventListener("click", function (e) { if (e.target === $("detailOverlay")) closeDetail(); });
     $("searchInput").addEventListener("input", function (e) { state.search = e.target.value; render(); });
     $("chapterFilter").addEventListener("change", function (e) { state.chapter = e.target.value; render(); });
     $("sortSelect").addEventListener("change", function (e) { state.sort = e.target.value; render(); });
