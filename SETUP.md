@@ -5,7 +5,7 @@ A shared event board for Massachusetts DECA chapters.
 ## Who can do what
 - **Anyone (no account):** view the whole board, search/filter, map view, open photos, share events.
 - **Members (email + password):** everything above, **plus** post events and **edit/delete their own** events.
-- **Admin** (small "Admin Sign In" button, bottom-right, password `Race2Suc3ss68`): edit/delete **any** event and **pin** events to the top.
+- **Admin** (small "Admin Sign In" button, bottom-right, password `Race2Suc3ss68`): edit/delete **any** event, **pin** events to the top, and open the **Instagram Requests** panel (button appears in the toolbar when signed in as admin) to see which chapters asked to be featured and mark them as posted.
 
 ## Status: backend is already set up ✅
 The Supabase project, database, photo storage, security rules, member accounts, and the admin account are already created and configured. Keys are in `index.html`.

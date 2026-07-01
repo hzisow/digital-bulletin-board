@@ -256,6 +256,37 @@
     padding: 4px 10px; border-radius: var(--r-sm); margin-bottom: 14px;
   }
   .ig-flag svg { color: var(--deca-blue); }
+  .ig-flag.posted { color: #1f7a4d; background: #e7f6ee; border-color: #b9e4cd; }
+  .ig-flag.posted svg { color: #1f9d6b; }
+
+  /* IG requests button + list */
+  .ig-req-btn .ig-count {
+    background: rgba(255,255,255,.28); color: #fff; font-size: .78rem; font-weight: 700;
+    border-radius: 999px; padding: 1px 8px; margin-left: 2px;
+  }
+  .ig-row {
+    display: flex; gap: 14px; align-items: flex-start;
+    padding: 14px 0; border-bottom: 1px solid var(--line-soft);
+  }
+  .ig-row:last-child { border-bottom: none; }
+  .ig-thumb {
+    width: 70px; height: 70px; flex-shrink: 0; border-radius: var(--r-sm); overflow: hidden;
+    background: var(--deca-blue) url("deca-diamond-white.png") center/34px no-repeat;
+    background-size: 34px; border: 1px solid var(--line);
+  }
+  .ig-thumb.has-img { background-size: cover; }
+  .ig-info { flex: 1; min-width: 0; }
+  .ig-info .r-chap { font-size: .72rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--blue); }
+  .ig-info .r-title { font-family: "Montserrat"; font-weight: 700; font-size: 1rem; margin: 2px 0 4px; color: var(--ink); }
+  .ig-info .r-meta { font-size: .82rem; color: var(--muted); }
+  .ig-actions { display: flex; flex-direction: column; gap: 7px; align-items: flex-end; flex-shrink: 0; }
+  .ig-actions .btn { padding: 7px 12px; font-size: .82rem; }
+  .ig-status { font-size: .72rem; font-weight: 700; color: #1f7a4d; display: inline-flex; align-items: center; gap: 5px; }
+  .ig-empty { text-align: center; color: var(--muted); padding: 30px 10px; }
+  @media (max-width: 560px) {
+    .ig-row { flex-wrap: wrap; }
+    .ig-actions { flex-direction: row; width: 100%; align-items: center; justify-content: flex-start; }
+  }
   .card-foot { margin-top: auto; display: flex; gap: 8px; align-items: center; padding-top: 4px; }
   .card-foot .signup { flex: 1; justify-content: center; }
   .nolink { flex: 1; text-align: center; color: var(--muted); font-size: .85rem; border: 1px dashed var(--line); border-radius: var(--r-sm); padding: 10px; }
@@ -570,6 +601,10 @@
             Map
           </button>
         </div>
+        <button class="btn btn-primary ig-req-btn" id="igReqBtn" type="button" style="display:none">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
+          Instagram Requests <span class="ig-count" id="igReqCount">0</span>
+        </button>
       </div>
 
       <div class="tabs" id="catTabs"></div>
@@ -654,6 +689,21 @@
           <button type="submit" class="btn btn-primary" id="adminSubmit">Sign in</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Instagram Requests modal (admin) -->
+  <div class="overlay" id="igOverlay">
+    <div class="modal" style="max-width:640px">
+      <div class="modal-head">
+        <span class="dia"></span>
+        <h2>Instagram Feature Requests</h2>
+        <button class="close" id="igClose" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body" style="max-height:70vh;overflow-y:auto">
+        <p style="margin:0 0 16px;color:var(--muted);font-size:.9rem">Chapters that asked to be featured on <a href="https://instagram.com/madeca" target="_blank" rel="noopener">@madeca</a>. Mark each as posted once you've shared it.</p>
+        <div id="igList"></div>
+      </div>
     </div>
   </div>
 
@@ -788,6 +838,7 @@
     if (typeof e.lat !== "number") e.lat = null;
     if (typeof e.lng !== "number") e.lng = null;
     if (typeof e.pinned !== "boolean") e.pinned = false;
+    if (typeof e.igPosted !== "boolean") e.igPosted = false;
     return e;
   }
   function load() {
@@ -850,7 +901,8 @@
     share: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>',
     pin: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14l-1.6-2.4a2 2 0 0 1-.4-1.2V8a2 2 0 0 1 2-2V4H6v2a2 2 0 0 1 2 2v5.4a2 2 0 0 1-.4 1.2L6 17"/></svg>',
     logout: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',
-    user: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
+    user: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+    check: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
   };
 
   function rebuildChapterFilter() {
@@ -905,7 +957,7 @@
     return list;
   }
   function render() {
-    rebuildChapterFilter(); rebuildTabs();
+    rebuildChapterFilter(); rebuildTabs(); updateIgButton();
     $("statNum").textContent = state.events.length;
     var list = filtered(), board = $("board"), empty = $("emptyState"), mapWrap = $("mapWrap");
     var isMap = state.view === "map";
@@ -949,7 +1001,11 @@
     var meta = "";
     if (e.date) meta += '<div class="row">'+ICON.cal+'<span>'+esc(formatDate(e.date, e.time))+'</span></div>';
     if (e.location) meta += '<div class="row">'+ICON.pin+'<span>'+esc(e.location)+'</span></div>';
-    var igFlag = e.igRequest ? '<div class="ig-flag">'+ICON.ig+'Instagram feature requested</div>' : '';
+    var igFlag = e.igRequest
+      ? (e.igPosted
+          ? '<div class="ig-flag posted">'+ICON.ig+'Featured on Instagram</div>'
+          : '<div class="ig-flag">'+ICON.ig+'Instagram feature requested</div>')
+      : '';
     var foot = e.link
       ? '<a class="btn btn-primary signup" href="'+esc(e.link)+'" target="_blank" rel="noopener">Sign up / Info</a>'
       : '<span class="nolink">No sign-up link</span>';
@@ -1292,7 +1348,7 @@
       id: r.id, user_id: r.user_id, chapter: r.chapter, category: r.category, title: r.title,
       date: r.date || "", time: r.time || "", location: r.location || "",
       lat: (typeof r.lat === "number") ? r.lat : null, lng: (typeof r.lng === "number") ? r.lng : null,
-      description: r.description || "", link: r.link || "", igRequest: !!r.ig_request,
+      description: r.description || "", link: r.link || "", igRequest: !!r.ig_request, igPosted: !!r.ig_posted,
       pinned: !!r.pinned, photos: r.photos || [], created: r.created_at ? new Date(r.created_at).getTime() : 0
     };
   }
@@ -1453,6 +1509,61 @@
     }
   }
 
+  // ---------- Instagram feature requests (admin) ----------
+  function igRequests() {
+    return state.events.filter(function (e) { return e.igRequest; })
+      .sort(function (a, b) {
+        if (!!a.igPosted !== !!b.igPosted) return a.igPosted ? 1 : -1; // pending first
+        return b.created - a.created;
+      });
+  }
+  function updateIgButton() {
+    var btn = $("igReqBtn"); if (!btn) return;
+    if (!(USE_CLOUD && isAdmin)) { btn.style.display = "none"; return; }
+    btn.style.display = "inline-flex";
+    $("igReqCount").textContent = state.events.filter(function (e) { return e.igRequest && !e.igPosted; }).length;
+  }
+  function openIg() { renderIgList(); $("igOverlay").classList.add("open"); }
+  function closeIg() { $("igOverlay").classList.remove("open"); }
+  function renderIgList() {
+    var list = igRequests(), box = $("igList");
+    if (!list.length) { box.innerHTML = '<div class="ig-empty">No Instagram feature requests yet.</div>'; return; }
+    box.innerHTML = list.map(function (e) {
+      var thumb = (e.photos && e.photos[0])
+        ? '<div class="ig-thumb has-img" style="background-image:url(\''+e.photos[0].replace(/'/g,"%27")+'\')"></div>'
+        : '<div class="ig-thumb"></div>';
+      var when = e.date ? esc(formatDate(e.date, e.time)) : "Date TBD";
+      var where = e.location ? " · " + esc(e.location) : "";
+      var actions = e.igPosted
+        ? '<span class="ig-status">'+ICON.check+'Posted</span><button class="btn btn-ghost" data-igundo="'+e.id+'">Mark pending</button>'
+        : '<button class="btn btn-primary" data-igdone="'+e.id+'">Mark posted</button>';
+      return '<div class="ig-row">'+thumb+
+        '<div class="ig-info">'+
+          '<div class="r-chap">'+esc(e.chapter)+'</div>'+
+          '<div class="r-title">'+esc(e.title)+'</div>'+
+          '<div class="r-meta">'+when+where+'</div>'+
+        '</div>'+
+        '<div class="ig-actions">'+actions+'<button class="btn btn-ghost" data-igcopy="'+e.id+'">Copy details</button></div>'+
+      '</div>';
+    }).join("");
+    Array.prototype.forEach.call(box.querySelectorAll("[data-igdone]"), function (b) { b.addEventListener("click", function () { setIgPosted(b.getAttribute("data-igdone"), true); }); });
+    Array.prototype.forEach.call(box.querySelectorAll("[data-igundo]"), function (b) { b.addEventListener("click", function () { setIgPosted(b.getAttribute("data-igundo"), false); }); });
+    Array.prototype.forEach.call(box.querySelectorAll("[data-igcopy]"), function (b) { b.addEventListener("click", function () { shareEvent(b.getAttribute("data-igcopy")); }); });
+  }
+  function setIgPosted(id, val) {
+    if (USE_CLOUD) {
+      sb.from("events").update({ ig_posted: val }).eq("id", id).then(function (res) {
+        if (res.error) { alert("Update failed: " + res.error.message); return; }
+        var e = state.events.filter(function (x) { return x.id === id; })[0]; if (e) e.igPosted = val;
+        reloadEvents(); renderIgList(); updateIgButton();
+        toast(val ? "Marked as posted" : "Marked as pending");
+      });
+    } else {
+      var e = state.events.filter(function (x) { return x.id === id; })[0]; if (e) { e.igPosted = val; save(); }
+      render(); renderIgList(); updateIgButton();
+    }
+  }
+
   function init() {
     initBackend();
     reloadEvents();
@@ -1470,7 +1581,7 @@
     $("closeBtn").addEventListener("click", closeModal);
     $("cancelBtn").addEventListener("click", closeModal);
     $("overlay").addEventListener("click", function (e) { if (e.target === $("overlay")) closeModal(); });
-    document.addEventListener("keydown", function (e) { if (e.key === "Escape") { closeModal(); closeAdmin(); closeMember(); } });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") { closeModal(); closeAdmin(); closeMember(); closeIg(); } });
     $("eventForm").addEventListener("submit", handleSubmit);
 
     // member sign-in / sign-up
@@ -1487,6 +1598,11 @@
     $("adminCancel").addEventListener("click", closeAdmin);
     $("adminOverlay").addEventListener("click", function (e) { if (e.target === $("adminOverlay")) closeAdmin(); });
     $("adminForm").addEventListener("submit", submitAdmin);
+
+    // Instagram requests (admin)
+    $("igReqBtn").addEventListener("click", openIg);
+    $("igClose").addEventListener("click", closeIg);
+    $("igOverlay").addEventListener("click", function (e) { if (e.target === $("igOverlay")) closeIg(); });
     $("searchInput").addEventListener("input", function (e) { state.search = e.target.value; render(); });
     $("chapterFilter").addEventListener("change", function (e) { state.chapter = e.target.value; render(); });
     $("sortSelect").addEventListener("change", function (e) { state.sort = e.target.value; render(); });
