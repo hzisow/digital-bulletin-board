@@ -651,10 +651,15 @@
             <input type="email" id="mEmail" placeholder="you@school.org" autocomplete="email" />
             <div class="err-msg">Please enter a valid email.</div>
           </div>
-          <div class="field" data-field="mPass" style="margin-bottom:0">
+          <div class="field" data-field="mPass">
             <label>Password</label>
             <input type="password" id="mPass" placeholder="At least 6 characters" autocomplete="current-password" />
             <div class="err-msg">Password must be at least 6 characters.</div>
+          </div>
+          <div class="field" data-field="mPass2" id="mPass2Field" style="margin-bottom:0;display:none">
+            <label>Confirm password</label>
+            <input type="password" id="mPass2" placeholder="Re-enter your password" autocomplete="new-password" />
+            <div class="err-msg">Passwords don't match.</div>
           </div>
           <div id="memberMsg" style="display:none;font-size:.88rem;color:var(--deca-blue);background:#eaf4fc;border:1px solid #cfe6f8;padding:10px 12px;border-radius:var(--r-sm);margin-top:16px"></div>
           <button type="submit" class="btn btn-primary btn-block" id="memberSubmit" style="margin-top:20px">Sign in</button>
@@ -1426,6 +1431,9 @@
     $("memberIntro").textContent = signup
       ? "Create an account with your email to post events. Anyone can view the board without an account."
       : "Sign in with your email to post and manage your events. Viewing the board is open to everyone.";
+    $("mPass2Field").style.display = signup ? "block" : "none";
+    $("mPass").setAttribute("autocomplete", signup ? "new-password" : "current-password");
+    document.querySelector('#memberForm .field[data-field="mPass2"]').classList.remove("invalid");
     $("memberMsg").style.display = "none";
   }
   function openMember(mode) {
@@ -1443,10 +1451,12 @@
     var email = $("mEmail").value.trim(), pass = $("mPass").value;
     var fe = document.querySelector('#memberForm .field[data-field="mEmail"]');
     var fp = document.querySelector('#memberForm .field[data-field="mPass"]');
-    fe.classList.remove("invalid"); fp.classList.remove("invalid");
+    var fp2 = document.querySelector('#memberForm .field[data-field="mPass2"]');
+    fe.classList.remove("invalid"); fp.classList.remove("invalid"); fp2.classList.remove("invalid");
     var ok = true;
     if (email.indexOf("@") < 1) { fe.classList.add("invalid"); ok = false; }
     if (pass.length < 6) { fp.classList.add("invalid"); ok = false; }
+    if (memberMode === "signup" && $("mPass2").value !== pass) { fp2.classList.add("invalid"); ok = false; }
     if (!ok) return;
     var btn = $("memberSubmit"), label = btn.textContent;
     btn.disabled = true; btn.textContent = "Please wait…";
