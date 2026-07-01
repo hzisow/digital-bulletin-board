@@ -61,11 +61,11 @@
 
   /* ---------- Buttons ---------- */
   .btn {
-    border: none; border-radius: var(--r-sm);
-    padding: 11px 20px; font-weight: 600; font-size: .92rem;
+    border: 1px solid transparent; border-radius: var(--r-sm);
+    padding: 11px 20px; font-weight: 600; font-size: .92rem; line-height: 1.1;
     letter-spacing: .01em;
     transition: background .15s ease, color .15s ease, border-color .15s ease;
-    display: inline-flex; align-items: center; gap: 8px; text-decoration: none;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none;
   }
   .btn-primary { background: var(--deca-blue); color: #fff; font-weight: 700; }
   .btn-primary:hover { background: var(--blue-600); }
@@ -134,7 +134,8 @@
   .masthead-label { display: flex; flex-direction: column; }
   .masthead-label .k { font-family: "Montserrat"; font-weight: 700; font-size: 1.06rem; }
   .masthead-label .s { font-size: .82rem; color: #b6c6e6; }
-  .masthead .cta { margin-left: auto; }
+  .masthead .cta { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+  .masthead .cta .auth { display: inline-flex; align-items: center; }
 
   /* ---------- Intro / toolbar band ---------- */
   .controls { background: #fff; border-bottom: 1px solid var(--line); }
