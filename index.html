@@ -316,6 +316,18 @@
   }
   .card-photo.has-img { cursor: zoom-in; }
 
+  /* pinned */
+  .pin-badge {
+    position: absolute; bottom: 12px; left: 12px; z-index: 2;
+    background: var(--gold); color: #06305c; font-weight: 700;
+    font-size: .72rem; letter-spacing: .03em; text-transform: uppercase;
+    padding: 4px 10px; border-radius: var(--r-sm); display: inline-flex; align-items: center; gap: 5px;
+    box-shadow: var(--shadow-sm);
+  }
+  .pin-badge svg { width: 12px; height: 12px; }
+  .card-pinned { border-color: #bcdcf6; box-shadow: 0 0 0 2px rgba(58,166,238,.18), var(--shadow-sm); }
+  .icon-btn.pinned { background: var(--deca-blue); color: #fff; border-color: var(--deca-blue); }
+
   /* ---------- Lightbox ---------- */
   .lightbox { position: fixed; inset: 0; background: rgba(0,12,28,.92); z-index: 80; display: none; align-items: center; justify-content: center; }
   .lightbox.open { display: flex; }
@@ -443,6 +455,7 @@
         <span class="s">Posted by chapters, for chapters</span>
       </div>
       <div class="cta">
+        <span class="auth" id="authArea"></span>
         <a class="btn btn-line" href="https://madeca.org" target="_blank" rel="noopener">
           MA DECA Website
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7"/><path d="M8 7h9v9"/></svg>
@@ -524,6 +537,40 @@
   </div>
 
   <div class="toast" id="toast"></div>
+
+  <!-- Member sign-in / sign-up modal -->
+  <div class="overlay" id="memberOverlay">
+    <div class="modal" style="max-width:430px">
+      <div class="modal-head">
+        <span class="dia"></span>
+        <h2 id="memberTitle">Sign in</h2>
+        <button class="close" id="memberClose" aria-label="Close">&times;</button>
+      </div>
+      <form id="memberForm" novalidate>
+        <div class="modal-body">
+          <p id="memberIntro" style="margin:0 0 16px;color:var(--muted);font-size:.92rem">Sign in with your email to post and manage your events. Viewing the board is open to everyone.</p>
+          <div class="field" data-field="mEmail">
+            <label>Email</label>
+            <input type="email" id="mEmail" placeholder="you@school.org" autocomplete="email" />
+            <div class="err-msg">Please enter a valid email.</div>
+          </div>
+          <div class="field" data-field="mPass">
+            <label>Password</label>
+            <input type="password" id="mPass" placeholder="At least 6 characters" autocomplete="current-password" />
+            <div class="err-msg">Password must be at least 6 characters.</div>
+          </div>
+          <div id="memberMsg" style="display:none;font-size:.88rem;color:var(--deca-blue);background:#eaf4fc;border:1px solid #cfe6f8;padding:10px 12px;border-radius:var(--r-sm)"></div>
+        </div>
+        <div class="modal-foot" style="justify-content:space-between">
+          <button type="button" class="btn btn-ghost" id="memberToggle">Create account</button>
+          <div style="display:flex;gap:10px">
+            <button type="button" class="btn btn-ghost" id="memberCancel">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="memberSubmit">Sign in</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <!-- Admin sign-in (corner button) -->
   <button id="adminFab" class="admin-fab">Admin Sign In</button>
@@ -675,7 +722,7 @@
   // The password is NOT stored here — it is verified server-side by Supabase Auth,
   // and the database enforces that only this hidden admin account can edit/delete.
   var ADMIN_EMAIL = "admin@madeca-board.app";
-  var isAdmin = false;
+  var currentUser = null, isAdmin = false, memberMode = "signin";
 
   function normalize(e) {
     // migrate single `photo` -> `photos` array; ensure fields exist
@@ -683,6 +730,7 @@
     delete e.photo;
     if (typeof e.lat !== "number") e.lat = null;
     if (typeof e.lng !== "number") e.lng = null;
+    if (typeof e.pinned !== "boolean") e.pinned = false;
     return e;
   }
   function load() {
@@ -742,7 +790,8 @@
     edit: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
     trash: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
     ig: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>',
-    share: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>'
+    share: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>',
+    pin: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14l-1.6-2.4a2 2 0 0 1-.4-1.2V8a2 2 0 0 1 2-2V4H6v2a2 2 0 0 1 2 2v5.4a2 2 0 0 1-.4 1.2L6 17"/></svg>'
   };
 
   function rebuildChapterFilter() {
@@ -788,6 +837,7 @@
       return true;
     });
     list.sort(function (a,b) {
+      if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;   // pinned always first
       if (state.sort === "newest") return b.created - a.created;
       if (state.sort === "chapter") return a.chapter.localeCompare(b.chapter);
       if (state.sort === "soonest") return (a.date||"9999").localeCompare(b.date||"9999");
@@ -817,6 +867,7 @@
     Array.prototype.forEach.call(board.querySelectorAll("[data-edit]"), function (b) { b.addEventListener("click", function () { openModal(b.getAttribute("data-edit")); }); });
     Array.prototype.forEach.call(board.querySelectorAll("[data-del]"), function (b) { b.addEventListener("click", function () { removeEvent(b.getAttribute("data-del")); }); });
     Array.prototype.forEach.call(board.querySelectorAll("[data-share]"), function (b) { b.addEventListener("click", function () { shareEvent(b.getAttribute("data-share")); }); });
+    Array.prototype.forEach.call(board.querySelectorAll("[data-pin]"), function (b) { b.addEventListener("click", function () { togglePin(b.getAttribute("data-pin")); }); });
     Array.prototype.forEach.call(board.querySelectorAll("[data-photos]"), function (el) { el.addEventListener("click", function () { openLightbox(el.getAttribute("data-photos")); }); });
   }
   function cardHTML(e) {
@@ -830,10 +881,11 @@
       ? '<span class="photo-count"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>'+photos.length+'</span>'
       : '';
     var photoAttr = hasImg ? ' data-photos="'+e.id+'"' : '';
+    var pinnedBadge = e.pinned ? '<span class="pin-badge">'+ICON.pin+'Pinned</span>' : '';
     var photo = '<div class="card-photo'+(hasImg?' has-img':'')+'"'+photoStyle+photoAttr+'>'+
         '<div class="frame"></div>'+
         '<span class="cat-label"><span class="dot" style="background:'+color+'"></span>'+esc(e.category)+'</span>'+
-        dateTab + countBadge +
+        dateTab + countBadge + pinnedBadge +
       '</div>';
     var meta = "";
     if (e.date) meta += '<div class="row">'+ICON.cal+'<span>'+esc(formatDate(e.date, e.time))+'</span></div>';
@@ -842,12 +894,15 @@
     var foot = e.link
       ? '<a class="btn btn-primary signup" href="'+esc(e.link)+'" target="_blank" rel="noopener">Sign up / Info</a>'
       : '<span class="nolink">No sign-up link</span>';
-    var canEdit = isAdmin;
-    var ownerBtns = canEdit
+    var canManage = !USE_CLOUD || (currentUser && (e.user_id === currentUser.id || isAdmin));
+    var pinBtn = ((!USE_CLOUD) || isAdmin)
+      ? '<button class="icon-btn'+(e.pinned?' pinned':'')+'" data-pin="'+e.id+'" title="'+(e.pinned?'Unpin':'Pin to top')+'">'+ICON.pin+'</button>'
+      : '';
+    var ownerBtns = canManage
       ? '<button class="icon-btn" data-edit="'+e.id+'" title="Edit">'+ICON.edit+'</button>'+
         '<button class="icon-btn del" data-del="'+e.id+'" title="Delete">'+ICON.trash+'</button>'
       : '';
-    return '<article class="card">'+photo+
+    return '<article class="card'+(e.pinned?' card-pinned':'')+'">'+photo+
       '<div class="card-body">'+
         '<div class="card-chapter"><span class="dia"></span>'+esc(e.chapter)+'</div>'+
         '<h3 class="card-title">'+esc(e.title)+'</h3>'+
@@ -856,7 +911,7 @@
         igFlag+
         '<div class="card-foot">'+foot+
           '<button class="icon-btn" data-share="'+e.id+'" title="Share">'+ICON.share+'</button>'+
-          ownerBtns +
+          pinBtn + ownerBtns +
         '</div>'+
       '</div>'+
     '</article>';
@@ -921,11 +976,13 @@
     };
 
     if (USE_CLOUD) {
+      if (!currentUser) { closeModal(); openMember("signin"); return; }
       var btn = $("submitBtn"); var label = btn.textContent;
       btn.disabled = true; btn.textContent = "Saving…";
       uploadPhotos().then(function (urls) {
         var row = toRow(data, urls);
         if (id) return sb.from("events").update(row).eq("id", id);
+        row.user_id = currentUser.id;
         return sb.from("events").insert(row);
       }).then(function (res) {
         if (res && res.error) throw res.error;
@@ -1155,11 +1212,11 @@
       sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
       USE_CLOUD = true;
       sb.auth.getSession().then(function (res) {
-        applyAdminFromSession(res.data ? res.data.session : null);
+        applySession(res.data ? res.data.session : null);
         render();
       });
       sb.auth.onAuthStateChange(function (_evt, session) {
-        applyAdminFromSession(session);
+        applySession(session); render();
       });
       subscribeRealtime();
     }
@@ -1177,7 +1234,7 @@
       date: r.date || "", time: r.time || "", location: r.location || "",
       lat: (typeof r.lat === "number") ? r.lat : null, lng: (typeof r.lng === "number") ? r.lng : null,
       description: r.description || "", link: r.link || "", igRequest: !!r.ig_request,
-      photos: r.photos || [], created: r.created_at ? new Date(r.created_at).getTime() : 0
+      pinned: !!r.pinned, photos: r.photos || [], created: r.created_at ? new Date(r.created_at).getTime() : 0
     };
   }
   function toRow(d, photos) {
@@ -1215,17 +1272,87 @@
     return Promise.all(tasks);
   }
 
-  // ---------- Admin (password-only; verified server-side by Supabase) ----------
-  function applyAdminFromSession(session) {
-    isAdmin = !!(session && session.user && session.user.email === ADMIN_EMAIL);
-    applyAdminUI();
+  // ---------- Auth: members (email+password) + hidden admin ----------
+  function applySession(session) {
+    currentUser = (session && session.user) ? session.user : null;
+    isAdmin = !!(currentUser && currentUser.email === ADMIN_EMAIL);
+    applyAdminUI(); applyMemberUI();
   }
+  function logout() {
+    if (!sb) return;
+    sb.auth.signOut().then(function () { applySession(null); render(); toast("Logged out"); });
+  }
+
+  // Member sign-in / sign-up (in the header)
+  function applyMemberUI() {
+    var el = $("authArea"); if (!el) return;
+    if (!USE_CLOUD) { el.innerHTML = ""; return; }
+    if (currentUser) {
+      var who = isAdmin ? "Admin" : esc(currentUser.email);
+      el.innerHTML = '<span class="who">' + who + '</span> &middot; <a href="#" id="logoutLink">Log out</a>';
+      $("logoutLink").onclick = function (e) { e.preventDefault(); logout(); };
+    } else {
+      el.innerHTML = '<a href="#" id="signinLink">Sign in</a>';
+      $("signinLink").onclick = function (e) { e.preventDefault(); openMember("signin"); };
+    }
+  }
+  function setMemberMode() {
+    var signup = memberMode === "signup";
+    $("memberTitle").textContent = signup ? "Create account" : "Sign in";
+    $("memberSubmit").textContent = signup ? "Create account" : "Sign in";
+    $("memberToggle").textContent = signup ? "Have an account? Sign in" : "Create account";
+    $("memberIntro").textContent = signup
+      ? "Create an account with your email to post events. Anyone can view the board without an account."
+      : "Sign in with your email to post and manage your events. Viewing the board is open to everyone.";
+    $("memberMsg").style.display = "none";
+  }
+  function openMember(mode) {
+    if (!USE_CLOUD) { toast("Backend not configured yet — see SETUP.md"); return; }
+    memberMode = mode || "signin"; setMemberMode();
+    $("memberForm").reset();
+    document.querySelectorAll('#memberForm .field.invalid').forEach(function (f) { f.classList.remove("invalid"); });
+    $("memberOverlay").classList.add("open");
+    setTimeout(function () { $("mEmail").focus(); }, 50);
+  }
+  function closeMember() { $("memberOverlay").classList.remove("open"); }
+  function toggleMember() { memberMode = memberMode === "signin" ? "signup" : "signin"; setMemberMode(); }
+  function submitMember(ev) {
+    ev.preventDefault();
+    var email = $("mEmail").value.trim(), pass = $("mPass").value;
+    var fe = document.querySelector('#memberForm .field[data-field="mEmail"]');
+    var fp = document.querySelector('#memberForm .field[data-field="mPass"]');
+    fe.classList.remove("invalid"); fp.classList.remove("invalid");
+    var ok = true;
+    if (email.indexOf("@") < 1) { fe.classList.add("invalid"); ok = false; }
+    if (pass.length < 6) { fp.classList.add("invalid"); ok = false; }
+    if (!ok) return;
+    var btn = $("memberSubmit"), label = btn.textContent;
+    btn.disabled = true; btn.textContent = "Please wait…";
+    var call = memberMode === "signup"
+      ? sb.auth.signUp({ email: email, password: pass })
+      : sb.auth.signInWithPassword({ email: email, password: pass });
+    call.then(function (res) {
+      btn.disabled = false; btn.textContent = label;
+      var m = $("memberMsg");
+      if (res.error) { m.style.display = "block"; m.style.color = "var(--danger)"; m.textContent = res.error.message; return; }
+      if (!res.data || !res.data.session) {
+        // signup with email confirmation still on
+        m.style.display = "block"; m.style.color = "var(--deca-blue)";
+        m.textContent = "Account created — check your email to confirm, then sign in.";
+        return;
+      }
+      closeMember(); toast(memberMode === "signup" ? "Account created — you're signed in" : "Signed in");
+    });
+  }
+
+  // Hidden admin sign-in (corner button, password only)
   function applyAdminUI() {
     var fab = $("adminFab"); if (!fab) return;
     if (isAdmin) { fab.classList.add("on"); fab.innerHTML = '<span class="ad-dot"></span> Admin · Sign out'; }
     else { fab.classList.remove("on"); fab.textContent = "Admin Sign In"; }
   }
   function openAdmin() {
+    if (isAdmin) { logout(); return; }
     if (!USE_CLOUD) { toast("Backend not configured yet — see SETUP.md"); return; }
     var f = document.querySelector('.field[data-field="adminpw"]'); if (f) f.classList.remove("invalid");
     $("adminForm").reset();
@@ -1240,16 +1367,24 @@
     var btn = $("adminSubmit"); btn.disabled = true; btn.textContent = "Checking…";
     sb.auth.signInWithPassword({ email: ADMIN_EMAIL, password: pw }).then(function (res) {
       btn.disabled = false; btn.textContent = "Sign in";
-      if (res.error || !res.data || !res.data.session) {
-        if (f) f.classList.add("invalid");
-        return;
-      }
-      isAdmin = true; applyAdminUI(); closeAdmin(); render();
-      toast("Admin mode on — you can now edit and delete any event");
+      if (res.error || !res.data || !res.data.session) { if (f) f.classList.add("invalid"); return; }
+      closeAdmin(); toast("Admin mode on — you can edit, delete, and pin any event");
     });
   }
-  function signOutAdmin() {
-    sb.auth.signOut().then(function () { isAdmin = false; applyAdminUI(); render(); toast("Admin mode off"); });
+
+  // ---------- Pin (admin only) ----------
+  function togglePin(id) {
+    var e = state.events.filter(function (x) { return x.id === id; })[0];
+    if (!e) return;
+    var next = !e.pinned;
+    if (USE_CLOUD) {
+      sb.from("events").update({ pinned: next }).eq("id", id).then(function (res) {
+        if (res.error) { alert("Couldn't update pin: " + res.error.message); return; }
+        reloadEvents(); toast(next ? "Pinned to top" : "Unpinned");
+      });
+    } else {
+      e.pinned = next; save(); render();
+    }
   }
 
   function init() {
@@ -1262,16 +1397,27 @@
       logoImg.addEventListener("error", function () { logoImg.style.display = "none"; });
       if (logoImg.complete && logoImg.naturalWidth > 0) logoImg.dispatchEvent(new Event("load"));
     }
-    $("newBtn").addEventListener("click", function () { openModal(null); });
+    $("newBtn").addEventListener("click", function () {
+      if (USE_CLOUD && !currentUser) { openMember("signin"); return; }
+      openModal(null);
+    });
     $("closeBtn").addEventListener("click", closeModal);
     $("cancelBtn").addEventListener("click", closeModal);
     $("overlay").addEventListener("click", function (e) { if (e.target === $("overlay")) closeModal(); });
-    document.addEventListener("keydown", function (e) { if (e.key === "Escape") { closeModal(); closeAdmin(); } });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") { closeModal(); closeAdmin(); closeMember(); } });
     $("eventForm").addEventListener("submit", handleSubmit);
 
-    // admin
+    // member sign-in / sign-up
+    applyMemberUI();
+    $("memberClose").addEventListener("click", closeMember);
+    $("memberCancel").addEventListener("click", closeMember);
+    $("memberToggle").addEventListener("click", toggleMember);
+    $("memberOverlay").addEventListener("click", function (e) { if (e.target === $("memberOverlay")) closeMember(); });
+    $("memberForm").addEventListener("submit", submitMember);
+
+    // admin (corner button)
     applyAdminUI();
-    $("adminFab").addEventListener("click", function () { if (isAdmin) signOutAdmin(); else openAdmin(); });
+    $("adminFab").addEventListener("click", openAdmin);
     $("adminClose").addEventListener("click", closeAdmin);
     $("adminCancel").addEventListener("click", closeAdmin);
     $("adminOverlay").addEventListener("click", function (e) { if (e.target === $("adminOverlay")) closeAdmin(); });
