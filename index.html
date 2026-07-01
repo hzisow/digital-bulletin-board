@@ -75,12 +75,29 @@
   .btn-line:hover { background: rgba(255,255,255,.12); border-color: #fff; }
   .btn-ghost { background: #fff; color: var(--ink); border: 1px solid var(--line); }
   .btn-ghost:hover { background: var(--paper); border-color: #d6dbe6; }
+  .btn-block { width: 100%; justify-content: center; }
+  .modal-switch { text-align: center; font-size: .88rem; color: var(--muted); }
+  .modal-switch a { color: var(--deca-blue); font-weight: 600; text-decoration: none; }
+  .modal-switch a:hover { text-decoration: underline; }
 
-  /* sign-in control in masthead */
-  .auth { font-size: .88rem; color: #d7e6f8; display: inline-flex; align-items: center; gap: 8px; }
-  .auth a { color: #fff; font-weight: 600; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,.5); }
-  .auth a:hover { border-color: #fff; }
-  .auth .who { color: #bdd4ee; }
+  /* account control in masthead */
+  .auth { display: inline-flex; align-items: center; }
+  .user-chip {
+    display: inline-flex; align-items: center; gap: 9px;
+    background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.24);
+    border-radius: 999px; padding: 4px 5px;
+  }
+  .user-chip .avatar {
+    width: 28px; height: 28px; border-radius: 50%; background: #fff; color: var(--deca-blue);
+    font-weight: 800; font-size: .82rem; font-family: "Montserrat";
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .user-chip .uname { color: #fff; font-size: .85rem; font-weight: 600; max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .user-chip .chip-logout {
+    background: transparent; border: none; color: #cfe0f4; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; padding: 5px; border-radius: 50%;
+  }
+  .user-chip .chip-logout:hover { background: rgba(255,255,255,.16); color: #fff; }
 
   /* ---------- Masthead ---------- */
   .masthead {
@@ -361,6 +378,18 @@
   }
   .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
+  /* ---------- Auth modal (centered hero) ---------- */
+  .auth-modal { position: relative; }
+  .auth-x {
+    position: absolute; top: 12px; right: 14px; z-index: 2;
+    background: none; border: none; font-size: 1.7rem; line-height: 1; color: var(--muted); cursor: pointer; padding: 2px 6px;
+  }
+  .auth-x:hover { color: var(--ink); }
+  .auth-hero { text-align: center; margin-bottom: 22px; }
+  .auth-emblem { width: 46px; height: 46px; margin: 0 auto 14px; display: block; background: url("deca-diamond-blue.png") center/contain no-repeat; }
+  .auth-hero h2 { margin: 0 0 6px; font-size: 1.4rem; font-weight: 800; color: var(--ink); }
+  .auth-hero p { margin: 0 auto; color: var(--muted); font-size: .9rem; max-width: 300px; line-height: 1.5; }
+
   /* ---------- Modal ---------- */
   .overlay {
     position: fixed; inset: 0; background: rgba(0,20,46,.55); backdrop-filter: blur(3px);
@@ -455,11 +484,11 @@
         <span class="s">Posted by chapters, for chapters</span>
       </div>
       <div class="cta">
-        <span class="auth" id="authArea"></span>
         <a class="btn btn-line" href="https://madeca.org" target="_blank" rel="noopener">
           MA DECA Website
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7"/><path d="M8 7h9v9"/></svg>
         </a>
+        <span class="auth" id="authArea"></span>
         <button class="btn btn-white" id="newBtn">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Post an Event
@@ -540,33 +569,28 @@
 
   <!-- Member sign-in / sign-up modal -->
   <div class="overlay" id="memberOverlay">
-    <div class="modal" style="max-width:430px">
-      <div class="modal-head">
-        <span class="dia"></span>
-        <h2 id="memberTitle">Sign in</h2>
-        <button class="close" id="memberClose" aria-label="Close">&times;</button>
-      </div>
+    <div class="modal auth-modal" style="max-width:400px">
+      <button class="close auth-x" id="memberClose" aria-label="Close">&times;</button>
       <form id="memberForm" novalidate>
-        <div class="modal-body">
-          <p id="memberIntro" style="margin:0 0 16px;color:var(--muted);font-size:.92rem">Sign in with your email to post and manage your events. Viewing the board is open to everyone.</p>
+        <div class="modal-body" style="padding:30px 28px 24px">
+          <div class="auth-hero">
+            <span class="auth-emblem"></span>
+            <h2 id="memberTitle">Sign in</h2>
+            <p id="memberIntro">Sign in with your email to post and manage your events. Viewing the board is open to everyone.</p>
+          </div>
           <div class="field" data-field="mEmail">
             <label>Email</label>
             <input type="email" id="mEmail" placeholder="you@school.org" autocomplete="email" />
             <div class="err-msg">Please enter a valid email.</div>
           </div>
-          <div class="field" data-field="mPass">
+          <div class="field" data-field="mPass" style="margin-bottom:0">
             <label>Password</label>
             <input type="password" id="mPass" placeholder="At least 6 characters" autocomplete="current-password" />
             <div class="err-msg">Password must be at least 6 characters.</div>
           </div>
-          <div id="memberMsg" style="display:none;font-size:.88rem;color:var(--deca-blue);background:#eaf4fc;border:1px solid #cfe6f8;padding:10px 12px;border-radius:var(--r-sm)"></div>
-        </div>
-        <div class="modal-foot" style="justify-content:space-between">
-          <button type="button" class="btn btn-ghost" id="memberToggle">Create account</button>
-          <div style="display:flex;gap:10px">
-            <button type="button" class="btn btn-ghost" id="memberCancel">Cancel</button>
-            <button type="submit" class="btn btn-primary" id="memberSubmit">Sign in</button>
-          </div>
+          <div id="memberMsg" style="display:none;font-size:.88rem;color:var(--deca-blue);background:#eaf4fc;border:1px solid #cfe6f8;padding:10px 12px;border-radius:var(--r-sm);margin-top:16px"></div>
+          <button type="submit" class="btn btn-primary btn-block" id="memberSubmit" style="margin-top:20px">Sign in</button>
+          <div class="modal-switch" style="margin-top:16px"><span id="memberSwitchText">New here? </span><a href="#" id="memberToggle">Create an account</a></div>
         </div>
       </form>
     </div>
@@ -791,7 +815,9 @@
     trash: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
     ig: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>',
     share: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>',
-    pin: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14l-1.6-2.4a2 2 0 0 1-.4-1.2V8a2 2 0 0 1 2-2V4H6v2a2 2 0 0 1 2 2v5.4a2 2 0 0 1-.4 1.2L6 17"/></svg>'
+    pin: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14l-1.6-2.4a2 2 0 0 1-.4-1.2V8a2 2 0 0 1 2-2V4H6v2a2 2 0 0 1 2 2v5.4a2 2 0 0 1-.4 1.2L6 17"/></svg>',
+    logout: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',
+    user: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
   };
 
   function rebuildChapterFilter() {
@@ -1288,19 +1314,26 @@
     var el = $("authArea"); if (!el) return;
     if (!USE_CLOUD) { el.innerHTML = ""; return; }
     if (currentUser) {
-      var who = isAdmin ? "Admin" : esc(currentUser.email);
-      el.innerHTML = '<span class="who">' + who + '</span> &middot; <a href="#" id="logoutLink">Log out</a>';
+      var who = isAdmin ? "Admin" : currentUser.email;
+      var initial = (who || "?").charAt(0).toUpperCase();
+      el.innerHTML =
+        '<span class="user-chip">' +
+          '<span class="avatar">' + esc(initial) + '</span>' +
+          '<span class="uname">' + esc(who) + '</span>' +
+          '<button class="chip-logout" id="logoutLink" title="Log out" aria-label="Log out">' + ICON.logout + '</button>' +
+        '</span>';
       $("logoutLink").onclick = function (e) { e.preventDefault(); logout(); };
     } else {
-      el.innerHTML = '<a href="#" id="signinLink">Sign in</a>';
-      $("signinLink").onclick = function (e) { e.preventDefault(); openMember("signin"); };
+      el.innerHTML = '<button class="btn btn-line" id="signinLink">' + ICON.user + 'Sign in</button>';
+      $("signinLink").onclick = function () { openMember("signin"); };
     }
   }
   function setMemberMode() {
     var signup = memberMode === "signup";
-    $("memberTitle").textContent = signup ? "Create account" : "Sign in";
+    $("memberTitle").textContent = signup ? "Create your account" : "Welcome back";
     $("memberSubmit").textContent = signup ? "Create account" : "Sign in";
-    $("memberToggle").textContent = signup ? "Have an account? Sign in" : "Create account";
+    $("memberSwitchText").textContent = signup ? "Already have an account? " : "New here? ";
+    $("memberToggle").textContent = signup ? "Sign in" : "Create an account";
     $("memberIntro").textContent = signup
       ? "Create an account with your email to post events. Anyone can view the board without an account."
       : "Sign in with your email to post and manage your events. Viewing the board is open to everyone.";
@@ -1410,8 +1443,7 @@
     // member sign-in / sign-up
     applyMemberUI();
     $("memberClose").addEventListener("click", closeMember);
-    $("memberCancel").addEventListener("click", closeMember);
-    $("memberToggle").addEventListener("click", toggleMember);
+    $("memberToggle").addEventListener("click", function (e) { e.preventDefault(); toggleMember(); });
     $("memberOverlay").addEventListener("click", function (e) { if (e.target === $("memberOverlay")) closeMember(); });
     $("memberForm").addEventListener("submit", submitMember);
 
