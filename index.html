@@ -1381,7 +1381,14 @@
     if (e) {
       openDetail(pendingEventId);
       pendingEventId = null;
-      try { history.replaceState({}, "", location.pathname); } catch (err) {}
+      // strip only the ?event param — never touch an in-flight OAuth code/token
+      try {
+        var u = new URL(location.href);
+        if (!u.searchParams.get("code") && !location.hash) {
+          u.searchParams.delete("event");
+          history.replaceState({}, "", u.pathname + (u.search ? u.search : ""));
+        }
+      } catch (err) {}
     }
   }
 
@@ -1417,7 +1424,9 @@
   // ============================================================
   function initBackend() {
     if (SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase && window.supabase.createClient) {
-      sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: { flowType: "pkce", detectSessionInUrl: true, persistSession: true, autoRefreshToken: true }
+      });
       USE_CLOUD = true;
       sb.auth.getSession().then(function (res) {
         applySession(res.data ? res.data.session : null);
