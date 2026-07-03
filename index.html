@@ -1422,19 +1422,37 @@
   // ============================================================
   //  Backend (Supabase) — falls back to localStorage if unconfigured
   // ============================================================
+  // Explicitly complete an OAuth redirect: pull tokens out of the URL hash,
+  // establish the session, and clean the address bar. Deterministic — no reliance
+  // on the library's auto-detection, which was intermittently leaving tokens stranded.
+  function handleAuthRedirect() {
+    if (!sb) return Promise.resolve();
+    var hash = location.hash ? location.hash.substring(1) : "";
+    if (hash.indexOf("access_token=") !== -1) {
+      var p = new URLSearchParams(hash);
+      var at = p.get("access_token"), rt = p.get("refresh_token");
+      if (at && rt) {
+        return sb.auth.setSession({ access_token: at, refresh_token: rt })
+          .then(function () { cleanAuthUrl(); })
+          .catch(function () { cleanAuthUrl(); });
+      }
+    }
+    if (hash.indexOf("error=") !== -1) { cleanAuthUrl(); }
+    return Promise.resolve();
+  }
+  function cleanAuthUrl() {
+    try { history.replaceState({}, "", location.pathname + (location.search || "")); } catch (e) {}
+  }
   function initBackend() {
     if (SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase && window.supabase.createClient) {
       sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-        auth: { flowType: "pkce", detectSessionInUrl: true, persistSession: true, autoRefreshToken: true }
+        auth: { flowType: "implicit", detectSessionInUrl: false, persistSession: true, autoRefreshToken: true }
       });
       USE_CLOUD = true;
-      sb.auth.getSession().then(function (res) {
-        applySession(res.data ? res.data.session : null);
-        render();
-      });
-      sb.auth.onAuthStateChange(function (_evt, session) {
-        applySession(session); render();
-      });
+      handleAuthRedirect()
+        .then(function () { return sb.auth.getSession(); })
+        .then(function (res) { applySession(res.data ? res.data.session : null); render(); });
+      sb.auth.onAuthStateChange(function (_evt, session) { applySession(session); render(); });
       subscribeRealtime();
     }
   }
@@ -1544,7 +1562,7 @@
   function closeMember() { $("memberOverlay").classList.remove("open"); }
   function oauth(provider) {
     if (!USE_CLOUD) { toast("Backend not configured yet — see SETUP.md"); return; }
-    sb.auth.signInWithOAuth({ provider: provider, options: { redirectTo: window.location.href } })
+    sb.auth.signInWithOAuth({ provider: provider, options: { redirectTo: location.origin + location.pathname } })
       .then(function (res) {
         if (res && res.error) {
           var name = provider === "azure" ? "Microsoft" : "Google";
