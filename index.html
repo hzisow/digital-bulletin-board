@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://accounts.google.com/gsi/client" async></script>
 <style>
   :root {
     /* Official DECA palette — PMS 285 blue #0072ce + metallic gold #85754e */
@@ -426,6 +427,7 @@
   .provider-btns { display: flex; flex-direction: column; gap: 10px; }
   .provider-btn { width: 100%; background: #fff; color: var(--ink); border: 1px solid var(--line); font-weight: 600; gap: 10px; }
   .provider-btn:hover { background: var(--paper); border-color: #cdd4e2; }
+  .gis-host { min-height: 40px; display: flex; justify-content: center; }
   .rec-note { text-align: center; font-size: .8rem; color: var(--blue-600); background: #eef6fd; border: 1px solid #d5e8f8; border-radius: var(--r-sm); padding: 8px 12px; margin-top: 12px; }
   .or-divider { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; margin: 18px 0 6px; }
   .or-divider::before, .or-divider::after { content: ""; height: 1px; background: var(--line); flex: 1; }
@@ -671,10 +673,7 @@
             <p id="memberIntro">Sign in with your email to post and manage your events. Viewing the board is open to everyone.</p>
           </div>
           <div class="provider-btns">
-            <button type="button" class="btn provider-btn" id="googleBtn">
-              <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-              Continue with Google
-            </button>
+            <div id="googleBtnHost" class="gis-host"></div>
           </div>
           <div class="rec-note">A Google account is recommended &mdash; faster sign-in and more secure.</div>
           <div class="or-divider"><span>or use email</span></div>
@@ -876,6 +875,12 @@
   // and the database enforces that only this hidden admin account can edit/delete.
   var ADMIN_EMAIL = "admin@madeca-board.app";
   var currentUser = null, isAdmin = false, memberMode = "signin";
+
+  // Google Identity Services (renders Google's own button on THIS domain, so the
+  // consent screen shows our app name — not the Supabase URL). This is the Web
+  // OAuth client ID from Google Cloud → Clients.
+  var GOOGLE_CLIENT_ID = "668747349151-p44qfdtbkov1tk0qjb02gg1dgrc13bk4.apps.googleusercontent.com";
+  var gisReady = false, gisNonce = null;
 
   function normalize(e) {
     // migrate single `photo` -> `photos` array; ensure fields exist
@@ -1557,17 +1562,57 @@
     $("memberForm").reset();
     document.querySelectorAll('#memberForm .field.invalid').forEach(function (f) { f.classList.remove("invalid"); });
     $("memberOverlay").classList.add("open");
-    setTimeout(function () { $("mEmail").focus(); }, 50);
+    setTimeout(function () { renderGoogleButton(); }, 40);
   }
   function closeMember() { $("memberOverlay").classList.remove("open"); }
-  function oauth(provider) {
-    if (!USE_CLOUD) { toast("Backend not configured yet — see SETUP.md"); return; }
-    sb.auth.signInWithOAuth({ provider: provider, options: { redirectTo: location.origin + location.pathname } })
+  // ---------- Google Identity Services (no redirect to Supabase domain) ----------
+  function makeNonce() {
+    var raw = btoa(String.fromCharCode.apply(null, crypto.getRandomValues(new Uint8Array(16))));
+    return crypto.subtle.digest("SHA-256", new TextEncoder().encode(raw)).then(function (buf) {
+      var hashed = Array.prototype.map.call(new Uint8Array(buf), function (b) { return b.toString(16).padStart(2, "0"); }).join("");
+      return { raw: raw, hashed: hashed };
+    });
+  }
+  function setupGIS() {
+    if (!USE_CLOUD || !GOOGLE_CLIENT_ID) return;
+    if (typeof google === "undefined" || !google.accounts || !google.accounts.id || !window.crypto || !crypto.subtle) {
+      setTimeout(setupGIS, 300); return;   // GIS script still loading
+    }
+    makeNonce().then(function (n) {
+      gisNonce = n.raw;
+      google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: onGoogleCredential,
+        nonce: n.hashed,
+        auto_select: false,
+        cancel_on_tap_outside: true
+      });
+      gisReady = true;
+      renderGoogleButton();
+    });
+  }
+  function renderGoogleButton() {
+    var host = document.getElementById("googleBtnHost");
+    if (!host || !gisReady) return;
+    host.innerHTML = "";
+    var w = host.offsetWidth || host.parentElement && host.parentElement.offsetWidth || 340;
+    google.accounts.id.renderButton(host, {
+      type: "standard", theme: "outline", size: "large",
+      text: "continue_with", shape: "rectangular", logo_alignment: "left",
+      width: Math.min(w, 400)
+    });
+  }
+  function onGoogleCredential(resp) {
+    if (!resp || !resp.credential) return;
+    sb.auth.signInWithIdToken({ provider: "google", token: resp.credential, nonce: gisNonce })
       .then(function (res) {
-        if (res && res.error) {
-          var name = provider === "azure" ? "Microsoft" : "Google";
-          toast(name + " sign-in isn't enabled yet — see SETUP.md");
-        }
+        if (res.error) { toast("Google sign-in failed: " + res.error.message); return; }
+        closeMember(); toast("Signed in");
+        // rotate the nonce for the next sign-in
+        makeNonce().then(function (n) {
+          gisNonce = n.raw;
+          google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: onGoogleCredential, nonce: n.hashed, auto_select: false });
+        });
       });
   }
   function toggleMember() { memberMode = memberMode === "signin" ? "signup" : "signin"; setMemberMode(); }
@@ -1726,7 +1771,7 @@
     $("memberToggle").addEventListener("click", function (e) { e.preventDefault(); toggleMember(); });
     $("memberOverlay").addEventListener("click", function (e) { if (e.target === $("memberOverlay")) closeMember(); });
     $("memberForm").addEventListener("submit", submitMember);
-    $("googleBtn").addEventListener("click", function () { oauth("google"); });
+    setupGIS();
 
     // admin (corner button)
     applyAdminUI();
