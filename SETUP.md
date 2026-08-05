@@ -2,6 +2,27 @@
 
 A shared event board for Massachusetts DECA chapters.
 
+## Who can do what
+- **Anyone (no account):** view the whole board, search/filter, map view, open photos, share events.
+- **Members (email + password):** everything above, **plus** post events and **edit/delete their own** events.
+- **Admin** (small "Admin Sign In" button, bottom-right): edit/delete **any** event, **pin** events to the top, and open the **Instagram Requests** panel (button appears in the toolbar when signed in as admin) to see which chapters asked to be featured and mark them as posted.
+
+## 🔐 Secrets: what belongs in this repo and what doesn't
+This repo is public, so treat everything in it as published to the world.
+
+**Safe to commit** (these are designed to be read by the browser and are protected by
+Supabase Row Level Security):
+- `SUPABASE_URL` and `SUPABASE_ANON_KEY` in `index.html`
+- `GOOGLE_CLIENT_ID` in `index.html`
+
+**Never commit** — keep these only in the Supabase/Google dashboards or a password manager:
+- The admin password, or any member password
+- The Supabase `service_role` key
+- Any Google/Microsoft OAuth **client secret**
+
+Look up or change the admin password in the dashboard (see **Reference** below) — do not
+write it down in this repo, in a commit message, or in an issue.
+
 ## Status: backend is already set up ✅
 The Supabase project, database, photo storage, security rules, member accounts, and the admin account are already created and configured. Keys are in `index.html`.
 
