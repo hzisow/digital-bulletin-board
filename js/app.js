@@ -258,6 +258,7 @@
     Array.prototype.forEach.call(board.querySelectorAll("[data-edit]"), function (b) { b.addEventListener("click", function () { openModal(b.getAttribute("data-edit")); }); });
     Array.prototype.forEach.call(board.querySelectorAll("[data-del]"), function (b) { b.addEventListener("click", function () { removeEvent(b.getAttribute("data-del")); }); });
     Array.prototype.forEach.call(board.querySelectorAll("[data-share]"), function (b) { b.addEventListener("click", function () { shareEvent(b.getAttribute("data-share")); }); });
+    Array.prototype.forEach.call(board.querySelectorAll("[data-cal]"), function (b) { b.addEventListener("click", function () { openCalMenu(b, b.getAttribute("data-cal")); }); });
     Array.prototype.forEach.call(board.querySelectorAll("[data-pin]"), function (b) { b.addEventListener("click", function () { togglePin(b.getAttribute("data-pin")); }); });
     Array.prototype.forEach.call(board.querySelectorAll("[data-photos]"), function (el) { el.addEventListener("click", function () { openLightbox(el.getAttribute("data-photos")); }); });
     Array.prototype.forEach.call(board.querySelectorAll("[data-detail]"), function (el) { el.addEventListener("click", function () { openDetail(el.getAttribute("data-detail")); }); });
@@ -305,8 +306,11 @@
         '<p class="card-desc">'+esc(e.description)+'</p>'+
         igFlag+
         '<div class="card-foot">'+foot+
-          '<button class="icon-btn" data-share="'+e.id+'" title="Share">'+ICON.share+'</button>'+
-          pinBtn + ownerBtns +
+          '<div class="card-actions">'+
+            (e.date ? '<button class="icon-btn" data-cal="'+e.id+'" title="Add to calendar">'+ICON.cal+'</button>' : '')+
+            '<button class="icon-btn" data-share="'+e.id+'" title="Share">'+ICON.share+'</button>'+
+            pinBtn + ownerBtns +
+          '</div>'+
         '</div>'+
       '</div>'+
     '</article>';
@@ -590,6 +594,83 @@
     }
   }
 
+  // ---------- Add to calendar (Google link + downloadable .ics) ----------
+  var calFor = null;      // the button the menu is currently anchored to
+  var calAnchorTop = 0;   // where that button was when the menu opened
+  function pad2(n) { return (n < 10 ? "0" : "") + n; }
+  function ymd(d) { return d.getFullYear() + pad2(d.getMonth() + 1) + pad2(d.getDate()); }
+  function localStamp(d) { return ymd(d) + "T" + pad2(d.getHours()) + pad2(d.getMinutes()) + "00"; }
+  function addDays(d, n) { var x = new Date(d); x.setDate(x.getDate() + n); return x; }
+  // A single day with a time becomes a 2-hour block; anything else is all-day
+  // (a multi-day event becomes an all-day range with the start time noted in the description).
+  function calSpan(e) {
+    var a = parseDate(e.date); if (!a) return null;
+    var b = parseDate(e.endDate) || a;
+    if (!(b > a) && e.time) {
+      var tp = e.time.split(":"), s = new Date(a.getFullYear(), a.getMonth(), a.getDate(), +tp[0], +tp[1]);
+      return { allDay: false, start: s, end: new Date(s.getTime() + 2 * 3600 * 1000) };
+    }
+    return { allDay: true, start: a, end: addDays(b, 1) };   // all-day end dates are exclusive
+  }
+  function calDesc(e) {
+    var lines = [];
+    if (isMultiDay(e) && e.time) lines.push("Starts " + fmtTime(e.time) + " on the first day.", "");
+    lines.push(e.description || "");
+    if (e.link) lines.push("", "Sign up / info: " + e.link);
+    lines.push("", "Posted by " + e.chapter + " on the MA DECA Chapter Event Board", eventUrl(e.id));
+    return lines.join("\n");
+  }
+  function googleCalUrl(e) {
+    var sp = calSpan(e); if (!sp) return "";
+    var dates = sp.allDay ? ymd(sp.start) + "/" + ymd(sp.end) : localStamp(sp.start) + "/" + localStamp(sp.end);
+    return "https://calendar.google.com/calendar/render?action=TEMPLATE&text=" + encodeURIComponent(e.title) +
+      "&dates=" + dates + "&ctz=America/New_York&details=" + encodeURIComponent(calDesc(e)) +
+      "&location=" + encodeURIComponent(e.location || "");
+  }
+  function icsEscape(s) { return String(s || "").replace(/\\/g, "\\\\").replace(/;/g, "\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n"); }
+  function icsFold(line) {   // RFC 5545 §3.1: content lines over 75 octets fold onto a continuation line
+    var out = [];
+    while (line.length > 74) { out.push(line.slice(0, 74)); line = " " + line.slice(74); }
+    out.push(line); return out.join("\r\n");
+  }
+  var ICS_TZ = [   // America/New_York, so timed events land at the right hour in any client
+    "BEGIN:VTIMEZONE", "TZID:America/New_York",
+    "BEGIN:DAYLIGHT", "TZOFFSETFROM:-0500", "TZOFFSETTO:-0400", "TZNAME:EDT", "DTSTART:19700308T020000", "RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU", "END:DAYLIGHT",
+    "BEGIN:STANDARD", "TZOFFSETFROM:-0400", "TZOFFSETTO:-0500", "TZNAME:EST", "DTSTART:19701101T020000", "RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU", "END:STANDARD",
+    "END:VTIMEZONE"
+  ];
+  function icsFor(e) {
+    var sp = calSpan(e); if (!sp) return "";
+    var n = new Date(), stamp = n.getUTCFullYear() + pad2(n.getUTCMonth() + 1) + pad2(n.getUTCDate()) + "T" + pad2(n.getUTCHours()) + pad2(n.getUTCMinutes()) + pad2(n.getUTCSeconds()) + "Z";
+    var lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Massachusetts DECA//Chapter Event Board//EN", "CALSCALE:GREGORIAN", "METHOD:PUBLISH"];
+    if (!sp.allDay) lines = lines.concat(ICS_TZ);
+    lines.push("BEGIN:VEVENT", "UID:" + e.id + "@madeca-board", "DTSTAMP:" + stamp);
+    if (sp.allDay) lines.push("DTSTART;VALUE=DATE:" + ymd(sp.start), "DTEND;VALUE=DATE:" + ymd(sp.end));
+    else lines.push("DTSTART;TZID=America/New_York:" + localStamp(sp.start), "DTEND;TZID=America/New_York:" + localStamp(sp.end));
+    lines.push("SUMMARY:" + icsEscape(e.title), "DESCRIPTION:" + icsEscape(calDesc(e)), "LOCATION:" + icsEscape(e.location || ""),
+      "URL:" + eventUrl(e.id), "END:VEVENT", "END:VCALENDAR");
+    return lines.map(icsFold).join("\r\n") + "\r\n";
+  }
+  function openCalMenu(btn, id) {
+    if (calFor === btn) { closeCalMenu(); return; }
+    var e = state.events.filter(function (x) { return x.id === id; })[0];
+    if (!e || !e.date) return;
+    var m = $("calMenu"), ics = $("calIcs");
+    $("calGoogle").href = googleCalUrl(e);
+    if (ics._url) URL.revokeObjectURL(ics._url);
+    ics._url = URL.createObjectURL(new Blob([icsFor(e)], { type: "text/calendar;charset=utf-8" }));
+    ics.href = ics._url;
+    ics.download = (e.title || "event").replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-").slice(0, 60) + ".ics";
+    m.hidden = false; calFor = btn;
+    var r = btn.getBoundingClientRect(), mw = m.offsetWidth, mh = m.offsetHeight;
+    calAnchorTop = r.top;
+    var left = Math.max(8, Math.min(r.left, window.innerWidth - mw - 8));
+    var top = r.bottom + 6; if (top + mh > window.innerHeight - 8) top = Math.max(8, r.top - mh - 6);
+    m.style.left = left + "px"; m.style.top = top + "px";
+    $("calGoogle").focus({ preventScroll: true });
+  }
+  function closeCalMenu() { if (!calFor) return; $("calMenu").hidden = true; calFor = null; }
+
   // ---------- Event detail view (shareable) ----------
   function openDetail(id) {
     var e = state.events.filter(function (x) { return x.id === id; })[0];
@@ -616,12 +697,14 @@
         igFlag +
         '<p class="detail-desc">'+esc(e.description)+'</p>'+
         '<div class="detail-actions">'+signup+
+          (e.date ? '<button class="btn btn-ghost" id="detailCal">'+ICON.cal+'Add to calendar</button>' : '')+
           '<button class="btn btn-ghost" id="detailShare">'+ICON.share+'Share</button>'+
         '</div>'+
       '</div>';
     var ph = $("detailBody").querySelector("[data-photos]");
     if (ph) ph.addEventListener("click", function () { openLightbox(e.id); });
     $("detailShare").addEventListener("click", function () { shareEvent(e.id); });
+    var dc = $("detailCal"); if (dc) dc.addEventListener("click", function () { openCalMenu(dc, e.id); });
     $("detailOverlay").classList.add("open");
   }
   function closeDetail() { $("detailOverlay").classList.remove("open"); }
@@ -1038,7 +1121,7 @@
     $("closeBtn").addEventListener("click", closeModal);
     $("cancelBtn").addEventListener("click", closeModal);
     $("overlay").addEventListener("click", function (e) { if (e.target === $("overlay")) closeModal(); });
-    document.addEventListener("keydown", function (e) { if (e.key === "Escape") { closeModal(); closeAdmin(); closeMember(); closeIg(); closeDetail(); closeConfirm(false); } });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") { closeModal(); closeAdmin(); closeMember(); closeIg(); closeDetail(); closeConfirm(false); closeCalMenu(); } });
     $("eventForm").addEventListener("submit", handleSubmit);
     // the end date can't come before the start date
     $("f_date").addEventListener("change", function () {
@@ -1050,6 +1133,16 @@
     $("confirmOk").addEventListener("click", function () { closeConfirm(true); });
     $("confirmCancel").addEventListener("click", function () { closeConfirm(false); });
     $("confirmOverlay").addEventListener("click", function (e) { if (e.target === $("confirmOverlay")) closeConfirm(false); });
+
+    // add-to-calendar menu: click-away, pick, scroll or resize all close it
+    document.addEventListener("click", function (e) { if (calFor && !$("calMenu").contains(e.target) && !calFor.contains(e.target)) closeCalMenu(); });
+    Array.prototype.forEach.call($("calMenu").querySelectorAll(".cal-item"), function (a) { a.addEventListener("click", function () { setTimeout(closeCalMenu, 0); }); });
+    window.addEventListener("resize", closeCalMenu);
+    // scroll events are dispatched asynchronously, so one can land just after the click that opened
+    // the menu (e.g. a scroll-into-view); only close if the anchor button has actually moved since
+    window.addEventListener("scroll", function () {
+      if (calFor && Math.abs(calFor.getBoundingClientRect().top - calAnchorTop) > 2) closeCalMenu();
+    }, true);
 
     // member sign-in / sign-up
     applyMemberUI();

@@ -276,11 +276,12 @@
     .ig-row { flex-wrap: wrap; }
     .ig-actions { flex-direction: row; width: 100%; align-items: center; justify-content: flex-start; }
   }
-  .card-foot { margin-top: auto; display: flex; gap: 8px; align-items: center; padding-top: 4px; }
-  .card-foot .signup { flex: 1; justify-content: center; }
-  .nolink { flex: 1; text-align: center; color: var(--muted); font-size: .85rem; border: 1px dashed var(--line); border-radius: var(--r-sm); padding: 10px; }
+  .card-foot { margin-top: auto; display: flex; gap: 8px; align-items: center; padding-top: 4px; flex-wrap: wrap; }
+  .card-foot .signup { flex: 1 1 auto; justify-content: center; white-space: nowrap; }
+  .nolink { flex: 1 1 auto; text-align: center; color: var(--muted); font-size: .85rem; border: 1px dashed var(--line); border-radius: var(--r-sm); padding: 10px; white-space: nowrap; }
+  .card-actions { display: flex; gap: 8px; margin-left: auto; }   /* wraps below the sign-up button as a unit when the row is full */
   .icon-btn {
-    width: 38px; height: 38px; border-radius: var(--r-sm); border: 1px solid var(--line);
+    width: 38px; height: 38px; flex-shrink: 0; border-radius: var(--r-sm); border: 1px solid var(--line);
     background: #fff; display: flex; align-items: center; justify-content: center; color: var(--muted);
     transition: all .12s;
   }
@@ -491,6 +492,11 @@
   .err-msg { color: var(--danger); font-size: .82rem; margin-top: 5px; display: none; }
   .field.invalid input, .field.invalid textarea { border-color: var(--danger); background: #fdf6f5; }
   .field.invalid .err-msg { display: block; }
+
+  /* ---------- Add-to-calendar menu ---------- */
+  .cal-menu { position: fixed; z-index: 65; background: #fff; border: 1px solid var(--line); border-radius: var(--r-sm); box-shadow: var(--shadow-md); min-width: 200px; padding: 6px; }
+  .cal-item { display: block; padding: 9px 12px; border-radius: 5px; font-size: .9rem; font-weight: 600; color: var(--ink); text-decoration: none; }
+  .cal-item:hover, .cal-item:focus { background: var(--paper); color: var(--deca-blue); outline: none; }
 
   /* ---------- My events toggle ---------- */
   .mine-btn { padding: 10px 15px; font-size: .9rem; }
