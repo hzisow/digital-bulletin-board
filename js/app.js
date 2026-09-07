@@ -9,7 +9,7 @@
     "Workshop": "#d2691e", "Other": "#677189"
   };
 
-  var state = { events: [], search: "", chapter: "", category: "", sort: "newest", range: "all", view: "list", photos: [] };
+  var state = { events: [], search: "", chapter: "", category: "", sort: "soonest", range: "upcoming", view: "list", photos: [] };
   var locPick = null;            // {label, lat, lng} captured from the address autocomplete
   var map = null, markerLayer = null, geoCache = {};
   var pendingEventId = null;   // event id from a shared ?event=... link
@@ -149,7 +149,7 @@
   function inRange(e) {
     if (state.range === "all") return true;
     var dt = parseDate(e.date);
-    if (!dt) return false;                       // undated events only show under "Any date"
+    if (!dt) return state.range === "upcoming";  // date TBD counts as upcoming; hidden from dated windows and Past
     var days = (dt - today0()) / 86400000;
     if (state.range === "past") return days < 0;
     if (state.range === "upcoming") return days >= 0;
@@ -190,12 +190,28 @@
       board.innerHTML = ""; empty.style.display = "block"; mapWrap.style.display = "none"; $("countLine").textContent = ""; return;
     }
     empty.style.display = "none";
-    $("countLine").textContent = list.length + (list.length === 1 ? " event" : " events") +
-      (list.length !== state.events.length ? " matching your filters" : " on the board");
+    var filtering = !!(state.search.trim() || state.chapter || state.category);
+    var n = list.length, noun = n === 1 ? " event" : " events";
+    $("countLine").textContent =
+      (!filtering && state.range === "upcoming") ? n + " upcoming" + noun :
+      (n !== state.events.length) ? n + noun + " matching your filters" :
+      n + noun + " on the board";
 
     if (isMap) { renderMap(list); return; }
 
-    if (list.length === 0) { board.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><h3>No matches</h3><p>Try clearing the search or filters.</p></div>'; return; }
+    if (list.length === 0) {
+      board.innerHTML = '<div class="empty-state" style="grid-column:1/-1">' +
+        ((!filtering && state.range === "upcoming")
+          ? '<h3>Nothing upcoming right now</h3><p><a href="#" data-range="past">See past events</a> or <a href="#" data-range="all">show everything</a> &mdash; or be the first chapter to post one.</p>'
+          : '<h3>No matches</h3><p>Try clearing the search or filters.</p>') +
+        '</div>';
+      Array.prototype.forEach.call(board.querySelectorAll("[data-range]"), function (a) {
+        a.addEventListener("click", function (ev) {
+          ev.preventDefault(); state.range = a.getAttribute("data-range"); $("rangeSelect").value = state.range; render();
+        });
+      });
+      return;
+    }
     board.innerHTML = list.map(cardHTML).join("");
     Array.prototype.forEach.call(board.querySelectorAll("[data-edit]"), function (b) { b.addEventListener("click", function () { openModal(b.getAttribute("data-edit")); }); });
     Array.prototype.forEach.call(board.querySelectorAll("[data-del]"), function (b) { b.addEventListener("click", function () { removeEvent(b.getAttribute("data-del")); }); });
