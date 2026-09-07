@@ -430,6 +430,7 @@
   .detail-modal .close-abs:hover { background: rgba(0,20,46,.75); }
   #detailBody .card-photo { border-radius: 0; cursor: zoom-in; }
   #detailBody .card-photo:not(.has-img) { cursor: default; }
+  #detailBody .date-tab { right: 58px; }   /* clear of the close button in the same corner */
   .detail-inner { padding: 20px 26px 26px; }
   .detail-title { font-family: "Montserrat"; font-weight: 800; font-size: 1.5rem; line-height: 1.2; margin: 4px 0 12px; color: var(--ink); letter-spacing: -.01em; }
   .detail-desc { font-size: .97rem; color: #3c4660; white-space: pre-wrap; word-break: break-word; margin: 14px 0 20px; line-height: 1.6; }
