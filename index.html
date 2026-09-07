@@ -283,6 +283,11 @@
           </div>
           <div class="field-row">
             <div class="field"><label>Date</label><input type="date" id="f_date" /></div>
+            <div class="field" data-field="endDate">
+              <label>End date <span style="font-weight:400;color:var(--muted)">(multi-day)</span></label>
+              <input type="date" id="f_endDate" />
+              <div class="err-msg" id="endDateErr">End date must be on or after the start date.</div>
+            </div>
             <div class="field"><label>Time</label><input type="time" id="f_time" /></div>
           </div>
           <div class="field" data-field="location">

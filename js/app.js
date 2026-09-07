@@ -23,6 +23,9 @@
   var SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVzZHdhamZwcGF6bHd6bGlrdWllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3NTU5NzgsImV4cCI6MjA5ODMzMTk3OH0.GX-6TayuoGLuY6MWnrtwqDs8QS3-YUybY6ienHUtboI";
   var BUCKET = "event-photos";
   var sb = null, USE_CLOUD = false;
+  // Whether the events table has end_date yet (SETUP.md → one-time SQL). Unknown until
+  // the first rows arrive; if the column is missing, saves simply leave it out.
+  var HAS_END_DATE = null;
 
   // Admin: posting is open to everyone; editing/deleting is admin-only.
   // The password is NOT stored here — it is verified server-side by Supabase Auth,
@@ -41,6 +44,7 @@
     if (!Array.isArray(e.photos)) e.photos = e.photo ? [e.photo] : [];
     delete e.photo;
     e.photos = safePhotos(e.photos);
+    if (typeof e.endDate !== "string") e.endDate = "";
     if (typeof e.lat !== "number") e.lat = null;
     if (typeof e.lng !== "number") e.lng = null;
     if (typeof e.pinned !== "boolean") e.pinned = false;
@@ -104,14 +108,39 @@
     var p = d.split("-"); if (p.length !== 3) return null;
     return new Date(+p[0], +p[1]-1, +p[2]);
   }
+  function fmtTime(t) {
+    if (!t) return "";
+    var tp = t.split(":"), h = +tp[0], ampm = h >= 12 ? "PM" : "AM", h12 = h % 12 || 12;
+    return h12 + ":" + tp[1] + " " + ampm;
+  }
   function formatDate(d, t) {
     var dt = parseDate(d); if (!dt) return "";
     var out = dt.toLocaleDateString("en-US", { weekday:"long", month:"long", day:"numeric", year:"numeric" });
-    if (t) {
-      var tp = t.split(":"), h = +tp[0], ampm = h >= 12 ? "PM" : "AM", h12 = h % 12 || 12;
-      out += " · " + h12 + ":" + tp[1] + " " + ampm;
+    return t ? out + " · " + fmtTime(t) : out;
+  }
+  function isMultiDay(e) { return !!(e.date && e.endDate && e.endDate > e.date); }
+  // "Thursday, March 4, 2027 · 8:00 AM" for one day; "March 4–6, 2027 · starts 8:00 AM" for a range
+  function formatRange(e) {
+    if (!e.date) return "";
+    if (!isMultiDay(e)) return formatDate(e.date, e.time);
+    var a = parseDate(e.date), b = parseDate(e.endDate), out;
+    if (a.getFullYear() !== b.getFullYear()) {
+      var f = { month: "short", day: "numeric", year: "numeric" };
+      out = a.toLocaleDateString("en-US", f) + " – " + b.toLocaleDateString("en-US", f);
+    } else if (a.getMonth() !== b.getMonth()) {
+      var g = { month: "long", day: "numeric" };
+      out = a.toLocaleDateString("en-US", g) + " – " + b.toLocaleDateString("en-US", g) + ", " + b.getFullYear();
+    } else {
+      out = a.toLocaleDateString("en-US", { month: "long" }) + " " + a.getDate() + "–" + b.getDate() + ", " + b.getFullYear();
     }
-    return out;
+    return e.time ? out + " · starts " + fmtTime(e.time) : out;
+  }
+  function dateTabHTML(e) {
+    var a = parseDate(e.date); if (!a) return "";
+    if (!isMultiDay(e)) return '<div class="date-tab"><div class="mo">'+MONTHS[a.getMonth()]+'</div><div class="dy">'+a.getDate()+'</div></div>';
+    var b = parseDate(e.endDate);
+    var mo = a.getMonth() === b.getMonth() ? MONTHS[a.getMonth()] : MONTHS[a.getMonth()]+'–'+MONTHS[b.getMonth()];
+    return '<div class="date-tab range"><div class="mo">'+mo+'</div><div class="dy">'+a.getDate()+'–'+b.getDate()+'</div></div>';
   }
 
   var ICON = {
@@ -148,13 +177,14 @@
   function today0() { var d = new Date(); d.setHours(0,0,0,0); return d; }
   function inRange(e) {
     if (state.range === "all") return true;
-    var dt = parseDate(e.date);
-    if (!dt) return state.range === "upcoming";  // date TBD counts as upcoming; hidden from dated windows and Past
-    var days = (dt - today0()) / 86400000;
-    if (state.range === "past") return days < 0;
-    if (state.range === "upcoming") return days >= 0;
-    if (state.range === "week") return days >= 0 && days <= 7;
-    if (state.range === "month") return days >= 0 && days <= 30;
+    var start = parseDate(e.date);
+    if (!start) return state.range === "upcoming";  // date TBD counts as upcoming; hidden from dated windows and Past
+    var end = parseDate(e.endDate) || start, t0 = today0();
+    var sd = (start - t0) / 86400000, ed = (end - t0) / 86400000;
+    if (state.range === "past") return ed < 0;                 // only once the last day has passed
+    if (state.range === "upcoming") return ed >= 0;            // includes events happening right now
+    if (state.range === "week") return ed >= 0 && sd <= 7;
+    if (state.range === "month") return ed >= 0 && sd <= 30;
     return true;
   }
   function filtered() {
@@ -237,8 +267,7 @@
     var photos = e.photos || [];
     var hasImg = photos.length > 0;
     var photoStyle = hasImg ? ' style="background-image:url(\''+photos[0].replace(/'/g,"%27")+'\')"' : '';
-    var dt = parseDate(e.date);
-    var dateTab = dt ? '<div class="date-tab"><div class="mo">'+MONTHS[dt.getMonth()]+'</div><div class="dy">'+dt.getDate()+'</div></div>' : '';
+    var dateTab = dateTabHTML(e);
     var countBadge = photos.length > 1
       ? '<span class="photo-count"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>'+photos.length+'</span>'
       : '';
@@ -250,7 +279,7 @@
         dateTab + countBadge + pinnedBadge +
       '</div>';
     var meta = "";
-    if (e.date) meta += '<div class="row">'+ICON.cal+'<span>'+esc(formatDate(e.date, e.time))+'</span></div>';
+    if (e.date) meta += '<div class="row">'+ICON.cal+'<span>'+esc(formatRange(e))+'</span></div>';
     if (e.location) meta += '<div class="row">'+ICON.loc+'<span>'+esc(e.location)+'</span></div>';
     var igFlag = e.igRequest
       ? (e.igPosted
@@ -291,7 +320,7 @@
       $("modalTitle").textContent = "Edit Event"; $("submitBtn").textContent = "Save Changes";
       $("editId").value = ev.id;
       $("f_chapter").value = ev.chapter||""; $("f_category").value = ev.category||"Other";
-      $("f_title").value = ev.title||""; $("f_date").value = ev.date||""; $("f_time").value = ev.time||"";
+      $("f_title").value = ev.title||""; $("f_date").value = ev.date||""; $("f_endDate").value = ev.endDate||""; $("f_time").value = ev.time||"";
       $("f_location").value = ev.location||""; $("f_description").value = ev.description||"";
       $("f_link").value = ev.link||""; $("f_igRequest").checked = !!ev.igRequest;
       state.photos = (ev.photos || []).slice();
@@ -328,6 +357,10 @@
     if (!title) { markInvalid("title"); ok = false; }
     if (!location) { markInvalid("location"); ok = false; }
     if (!desc) { markInvalid("description"); ok = false; }
+    var date = $("f_date").value, endDate = $("f_endDate").value;
+    if (endDate && !date) { $("endDateErr").textContent = "Add a start date first."; markInvalid("endDate"); ok = false; }
+    else if (endDate && endDate < date) { $("endDateErr").textContent = "End date must be on or after the start date."; markInvalid("endDate"); ok = false; }
+    if (endDate === date) endDate = "";   // same day → single-day event
     if (!ok) { var bad = document.querySelector(".field.invalid input, .field.invalid textarea"); if (bad) bad.focus(); return; }
     // use coordinates only if the picked address still matches the field text
     var lat = null, lng = null;
@@ -336,7 +369,7 @@
     var id = $("editId").value;
     var data = {
       chapter: chapter, category: $("f_category").value, title: title,
-      date: $("f_date").value, time: $("f_time").value, location: location, lat: lat, lng: lng,
+      date: date, endDate: endDate, time: $("f_time").value, location: location, lat: lat, lng: lng,
       description: desc, link: $("f_link").value.trim(), igRequest: $("f_igRequest").checked,
       photos: state.photos.slice()
     };
@@ -347,9 +380,18 @@
       btn.disabled = true; btn.textContent = "Saving…";
       uploadPhotos().then(function (urls) {
         var row = toRow(data, urls);
-        if (id) return sb.from("events").update(row).eq("id", id);
-        row.user_id = currentUser.id;
-        return sb.from("events").insert(row);
+        function send(r) {
+          if (id) return sb.from("events").update(r).eq("id", id);
+          r.user_id = currentUser.id;
+          return sb.from("events").insert(r);
+        }
+        return send(row).then(function (res) {
+          // table doesn't have end_date yet (SETUP.md → one-time SQL): drop it and retry once
+          if (res && res.error && HAS_END_DATE !== false && /end_date/.test(res.error.message || "")) {
+            HAS_END_DATE = false; delete row.end_date; return send(row);
+          }
+          return res;
+        });
       }).then(function (res) {
         if (res && res.error) throw res.error;
         btn.disabled = false; btn.textContent = label;
@@ -486,7 +528,7 @@
   }
   function popupHTML(e) {
     var img = (e.photos && e.photos[0]) ? '<div class="pp-img" style="background-image:url(\''+e.photos[0].replace(/'/g,"%27")+'\')"></div>' : '';
-    var when = e.date ? '<div class="pp-meta">'+ICON.cal+'<span>'+esc(formatDate(e.date, e.time))+'</span></div>' : '';
+    var when = e.date ? '<div class="pp-meta">'+ICON.cal+'<span>'+esc(formatRange(e))+'</span></div>' : '';
     var where = e.location ? '<div class="pp-meta">'+ICON.loc+'<span>'+esc(e.location)+'</span></div>' : '';
     var link = e.link ? '<a href="'+esc(e.link)+'" target="_blank" rel="noopener">Sign up / Info &rarr;</a>' : '';
     return '<div class="pp">'+img+'<div class="pp-body">'+
@@ -540,7 +582,7 @@
     var e = state.events.filter(function (x) { return x.id === id; })[0];
     if (!e) return;
     var url = eventUrl(id);
-    var text = e.title + " — " + e.chapter + (e.date ? " · " + formatDate(e.date, e.time) : "") + "\n" + url;
+    var text = e.title + " — " + e.chapter + (e.date ? " · " + formatRange(e) : "") + "\n" + url;
     if (navigator.share) {
       navigator.share({ title: e.title + " — MA DECA", text: e.title + " — " + e.chapter, url: url }).catch(function () {});
     } else {
@@ -553,15 +595,14 @@
     var e = state.events.filter(function (x) { return x.id === id; })[0];
     if (!e) return;
     var photos = e.photos || [], color = CAT_COLOR[e.category] || CAT_COLOR.Other;
-    var dt = parseDate(e.date);
-    var dateTab = dt ? '<div class="date-tab"><div class="mo">'+MONTHS[dt.getMonth()]+'</div><div class="dy">'+dt.getDate()+'</div></div>' : '';
+    var dateTab = dateTabHTML(e);
     var countBadge = photos.length > 1 ? '<span class="photo-count">'+photos.length+' photos</span>' : '';
     var catLabel = '<span class="cat-label"><span class="dot" style="background:'+color+'"></span>'+esc(e.category)+'</span>';
     var hero = photos.length
       ? '<div class="card-photo has-img" style="background-image:url(\''+photos[0].replace(/'/g,"%27")+'\')" data-photos="'+e.id+'"><div class="frame"></div>'+catLabel+dateTab+countBadge+'</div>'
       : '<div class="card-photo"><div class="frame"></div>'+catLabel+dateTab+'</div>';
     var meta = "";
-    if (e.date) meta += '<div class="row">'+ICON.cal+'<span>'+esc(formatDate(e.date, e.time))+'</span></div>';
+    if (e.date) meta += '<div class="row">'+ICON.cal+'<span>'+esc(formatRange(e))+'</span></div>';
     if (e.location) meta += '<div class="row">'+ICON.loc+'<span>'+esc(e.location)+'</span></div>';
     var igFlag = e.igRequest
       ? (e.igPosted ? '<div class="ig-flag posted">'+ICON.ig+'Featured on Instagram</div>' : '<div class="ig-flag">'+ICON.ig+'Instagram feature requested</div>')
@@ -697,24 +738,27 @@
   function fromRow(r) {
     return {
       id: r.id, user_id: r.user_id, chapter: r.chapter, category: r.category, title: r.title,
-      date: r.date || "", time: r.time || "", location: r.location || "",
+      date: r.date || "", endDate: r.end_date || "", time: r.time || "", location: r.location || "",
       lat: (typeof r.lat === "number") ? r.lat : null, lng: (typeof r.lng === "number") ? r.lng : null,
       description: r.description || "", link: r.link || "", igRequest: !!r.ig_request, igPosted: !!r.ig_posted,
       pinned: !!r.pinned, photos: safePhotos(r.photos), created: r.created_at ? new Date(r.created_at).getTime() : 0
     };
   }
   function toRow(d, photos) {
-    return {
+    var row = {
       chapter: d.chapter, category: d.category, title: d.title,
       date: d.date || null, time: d.time || null, location: d.location,
       lat: d.lat, lng: d.lng, description: d.description, link: d.link || null,
       ig_request: d.igRequest, photos: photos
     };
+    if (HAS_END_DATE !== false) row.end_date = d.endDate || null;
+    return row;
   }
   function reloadEvents() {
     if (USE_CLOUD) {
       sb.from("events").select("*").order("created_at", { ascending: false }).then(function (res) {
         if (res.error) { console.error(res.error); toast("Couldn't load events"); return; }
+        if (res.data && res.data.length) HAS_END_DATE = ("end_date" in res.data[0]);
         state.events = (res.data || []).map(fromRow);
         render(); openSharedIfAny();
       });
@@ -944,7 +988,7 @@
       var thumb = (e.photos && e.photos[0])
         ? '<div class="ig-thumb has-img" style="background-image:url(\''+e.photos[0].replace(/'/g,"%27")+'\')"></div>'
         : '<div class="ig-thumb"></div>';
-      var when = e.date ? esc(formatDate(e.date, e.time)) : "Date TBD";
+      var when = e.date ? esc(formatRange(e)) : "Date TBD";
       var where = e.location ? " · " + esc(e.location) : "";
       var actions = e.igPosted
         ? '<span class="ig-status">'+ICON.check+'Posted</span><button class="btn btn-ghost" data-igundo="'+e.id+'">Mark pending</button>'
@@ -996,6 +1040,11 @@
     $("overlay").addEventListener("click", function (e) { if (e.target === $("overlay")) closeModal(); });
     document.addEventListener("keydown", function (e) { if (e.key === "Escape") { closeModal(); closeAdmin(); closeMember(); closeIg(); closeDetail(); closeConfirm(false); } });
     $("eventForm").addEventListener("submit", handleSubmit);
+    // the end date can't come before the start date
+    $("f_date").addEventListener("change", function () {
+      var ed = $("f_endDate"); ed.min = this.value || "";
+      if (ed.value && this.value && ed.value < this.value) ed.value = "";
+    });
 
     // confirm dialog
     $("confirmOk").addEventListener("click", function () { closeConfirm(true); });

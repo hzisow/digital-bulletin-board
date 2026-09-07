@@ -219,6 +219,7 @@
   }
   .date-tab .mo { font-size: .64rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #bfe0fa; }
   .date-tab .dy { font-family: "Montserrat"; font-weight: 800; font-size: 1.15rem; margin-top: 2px; }
+  .date-tab.range .dy { font-size: 1rem; letter-spacing: -.01em; }
 
   .card-body { padding: 17px 19px 19px; display: flex; flex-direction: column; flex: 1; }
   .card-chapter {

@@ -26,6 +26,17 @@ write it down in this repo, in a commit message, or in an issue.
 ## Status: backend is already set up ✅
 The Supabase project, database, photo storage, security rules, member accounts, and the admin account are already created and configured. Keys are in `index.html`.
 
+## ⚠️ One-time SQL to run (multi-day events)
+Events can now span several days, which needs one new column. Paste this into
+**SQL Editor → New query → Run** (safe to run more than once):
+```sql
+alter table public.events add column if not exists end_date date;
+alter table public.events drop constraint if exists events_end_after_start;
+alter table public.events add constraint events_end_after_start
+  check (end_date is null or date is null or end_date >= date);
+```
+Until it's run the board keeps working — the End date field is just ignored on save.
+
 ## ⚠️ One setting you must flip (makes member sign-up work 100%)
 By default Supabase requires email confirmation, which depends on unreliable free-tier emails. Turn it **off** so members sign up instantly with just email + password (no email sent):
 

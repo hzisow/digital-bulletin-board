@@ -2,6 +2,10 @@
 --  MA DECA Chapter Event Board — Supabase setup
 --  Paste this whole file into the Supabase SQL Editor and click "Run".
 --  (Dashboard → SQL Editor → New query → paste → Run)
+--
+--  NOTE: the live project also carries admin-override RLS policies (update/delete
+--  when the JWT email is the admin account) and a protect_pinned trigger that were
+--  added from the dashboard and are not reproduced here.
 -- ============================================================
 
 -- 1) The events table -----------------------------------------
@@ -13,6 +17,7 @@ create table if not exists public.events (
   category    text not null,
   title       text not null,
   date        date,
+  end_date    date,               -- optional last day, for multi-day events
   time        text,
   location    text not null,
   lat         double precision,
@@ -22,6 +27,12 @@ create table if not exists public.events (
   ig_request  boolean not null default false,
   photos      text[] not null default '{}'
 );
+
+-- 1b) Multi-day events — adds end_date to a table created before it existed. Safe to re-run.
+alter table public.events add column if not exists end_date date;
+alter table public.events drop constraint if exists events_end_after_start;
+alter table public.events add constraint events_end_after_start
+  check (end_date is null or date is null or end_date >= date);
 
 -- 2) Row Level Security ---------------------------------------
 alter table public.events enable row level security;
