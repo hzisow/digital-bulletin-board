@@ -196,7 +196,7 @@
       </div>
       <form id="adminForm" novalidate>
         <div class="modal-body">
-          <p style="margin:0 0 16px;color:var(--muted);font-size:.92rem">Enter the admin password to manage events. Admins can edit and delete any post; anyone can still add events without signing in.</p>
+          <p style="margin:0 0 16px;color:var(--muted);font-size:.92rem">Enter the admin password to manage the board. Admins can edit, delete and pin any event and review Instagram feature requests. Members post and manage their own events after signing in.</p>
           <div class="field" data-field="adminpw">
             <label>Password</label>
             <input type="password" id="adminPw" placeholder="Password" autocomplete="current-password" />
@@ -313,7 +313,7 @@
             <input type="file" id="f_photo" accept="image/*" multiple hidden />
             <div class="dropzone" id="dropzone">
               <div>Drag photos here or <strong>click to upload</strong></div>
-              <div style="font-size:.78rem;margin-top:4px;">PNG, JPG or GIF &middot; multiple allowed &middot; stored in your browser</div>
+              <div style="font-size:.78rem;margin-top:4px;">PNG, JPG or GIF &middot; multiple allowed &middot; large photos are resized automatically</div>
             </div>
             <div class="thumbs" id="photoThumbs"></div>
           </div>
@@ -323,6 +323,20 @@
           <button type="submit" class="btn btn-primary" id="submitBtn">Post Event</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Confirm dialog (replaces window.confirm) -->
+  <div class="overlay" id="confirmOverlay">
+    <div class="modal confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" style="max-width:420px">
+      <div class="modal-body">
+        <h2 class="confirm-title" id="confirmTitle"></h2>
+        <p class="confirm-msg" id="confirmMsg"></p>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-ghost" id="confirmCancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="confirmOk">OK</button>
+      </div>
     </div>
   </div>
 

@@ -56,7 +56,7 @@
   }
   function save() {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.events)); }
-    catch (e) { alert("Couldn't save — your browser storage may be full (large photos use a lot of space). Try a smaller image."); }
+    catch (e) { toast("Couldn't save — browser storage is full. Try smaller or fewer photos.", "error"); }
   }
   function seed() {
     var now = Date.now();
@@ -344,7 +344,7 @@
         closeModal(); reloadEvents();
       }).catch(function (err) {
         btn.disabled = false; btn.textContent = label;
-        alert("Save failed: " + (err && err.message ? err.message : err));
+        toast("Couldn't save: " + (err && err.message ? err.message : err), "error");
       });
       return;
     }
@@ -357,22 +357,28 @@
   function removeEvent(id) {
     var ev = state.events.filter(function (e) { return e.id === id; })[0];
     if (!ev) return;
-    if (!confirm('Delete "'+ev.title+'"? This cannot be undone.')) return;
-    if (USE_CLOUD) {
-      sb.from("events").delete().eq("id", id).then(function (res) {
-        if (res.error) { alert("Delete failed: " + res.error.message); return; }
-        reloadEvents();
-      });
-      return;
-    }
-    state.events = state.events.filter(function (e) { return e.id !== id; });
-    save(); render();
+    confirmDialog({
+      title: "Delete this event?",
+      message: '"' + ev.title + '" will be removed from the board. This cannot be undone.',
+      okLabel: "Delete", danger: true
+    }).then(function (yes) {
+      if (!yes) return;
+      if (USE_CLOUD) {
+        sb.from("events").delete().eq("id", id).then(function (res) {
+          if (res.error) { toast("Couldn't delete: " + res.error.message, "error"); return; }
+          reloadEvents(); toast("Event deleted");
+        });
+        return;
+      }
+      state.events = state.events.filter(function (e) { return e.id !== id; });
+      save(); render(); toast("Event deleted");
+    });
   }
 
   function addPhotos(files) {
     Array.prototype.forEach.call(files, function (file) {
       if (!file || file.type.indexOf("image/") !== 0) return;
-      if (file.size > 6*1024*1024) { alert('"'+file.name+'" is larger than 6MB and was skipped — please use a smaller image.'); return; }
+      if (file.size > 6*1024*1024) { toast('"' + file.name + '" is over 6MB and was skipped', "error"); return; }
       var reader = new FileReader();
       reader.onload = function (e) { downscale(e.target.result, function (url) { state.photos.push(url); showPhotos(); }); };
       reader.readAsDataURL(file);
@@ -605,10 +611,31 @@
 
   // ---------- Toast ----------
   var toastTimer = null;
-  function toast(msg) {
-    var t = $("toast"); t.textContent = msg; t.classList.add("show");
+  function toast(msg, kind) {
+    var t = $("toast"); t.textContent = msg; t.className = "toast show" + (kind ? " " + kind : "");
     if (toastTimer) clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { t.classList.remove("show"); }, 2400);
+    toastTimer = setTimeout(function () { t.classList.remove("show"); }, kind === "error" ? 4200 : 2400);
+  }
+
+  // ---------- Confirm dialog (replaces window.confirm) ----------
+  var confirmResolve = null;
+  function confirmDialog(opts) {
+    // opts: { title, message, okLabel, danger } → Promise<boolean>
+    $("confirmTitle").textContent = opts.title || "Are you sure?";
+    $("confirmMsg").textContent = opts.message || "";
+    var ok = $("confirmOk");
+    ok.textContent = opts.okLabel || "OK";
+    ok.className = "btn " + (opts.danger ? "btn-danger" : "btn-primary");
+    $("confirmOverlay").classList.add("open");
+    // destructive actions start with focus on Cancel so a stray Enter can't delete
+    setTimeout(function () { (opts.danger ? $("confirmCancel") : ok).focus(); }, 30);
+    return new Promise(function (resolve) { confirmResolve = resolve; });
+  }
+  function closeConfirm(result) {
+    if (!$("confirmOverlay").classList.contains("open")) return;
+    $("confirmOverlay").classList.remove("open");
+    var r = confirmResolve; confirmResolve = null;
+    if (r) r(!!result);
   }
 
   // ============================================================
@@ -868,7 +895,7 @@
     var next = !e.pinned;
     if (USE_CLOUD) {
       sb.from("events").update({ pinned: next }).eq("id", id).then(function (res) {
-        if (res.error) { alert("Couldn't update pin: " + res.error.message); return; }
+        if (res.error) { toast("Couldn't update pin: " + res.error.message, "error"); return; }
         reloadEvents(); toast(next ? "Pinned to top" : "Unpinned");
       });
     } else {
@@ -920,7 +947,7 @@
   function setIgPosted(id, val) {
     if (USE_CLOUD) {
       sb.from("events").update({ ig_posted: val }).eq("id", id).then(function (res) {
-        if (res.error) { alert("Update failed: " + res.error.message); return; }
+        if (res.error) { toast("Couldn't update: " + res.error.message, "error"); return; }
         var e = state.events.filter(function (x) { return x.id === id; })[0]; if (e) e.igPosted = val;
         reloadEvents(); renderIgList(); updateIgButton();
         toast(val ? "Marked as posted" : "Marked as pending");
@@ -949,8 +976,13 @@
     $("closeBtn").addEventListener("click", closeModal);
     $("cancelBtn").addEventListener("click", closeModal);
     $("overlay").addEventListener("click", function (e) { if (e.target === $("overlay")) closeModal(); });
-    document.addEventListener("keydown", function (e) { if (e.key === "Escape") { closeModal(); closeAdmin(); closeMember(); closeIg(); closeDetail(); } });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") { closeModal(); closeAdmin(); closeMember(); closeIg(); closeDetail(); closeConfirm(false); } });
     $("eventForm").addEventListener("submit", handleSubmit);
+
+    // confirm dialog
+    $("confirmOk").addEventListener("click", function () { closeConfirm(true); });
+    $("confirmCancel").addEventListener("click", function () { closeConfirm(false); });
+    $("confirmOverlay").addEventListener("click", function (e) { if (e.target === $("confirmOverlay")) closeConfirm(false); });
 
     // member sign-in / sign-up
     applyMemberUI();

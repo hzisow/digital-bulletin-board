@@ -491,6 +491,15 @@
   .field.invalid input, .field.invalid textarea { border-color: var(--danger); background: #fdf6f5; }
   .field.invalid .err-msg { display: block; }
 
+  /* ---------- Toast variants ---------- */
+  .toast.error { background: var(--danger); }
+
+  /* ---------- Confirm dialog ---------- */
+  .confirm-title { margin: 0 0 8px; font-size: 1.15rem; font-weight: 700; }
+  .confirm-msg { margin: 0; color: var(--muted); font-size: .93rem; line-height: 1.5; word-break: break-word; }
+  .btn-danger { background: var(--danger); color: #fff; font-weight: 700; }
+  .btn-danger:hover { background: #a3271f; }
+
   /* ---------- Responsive ---------- */
   @media (max-width: 900px) {
     .wrap { padding-left: 20px; padding-right: 20px; }
