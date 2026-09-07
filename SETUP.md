@@ -41,6 +41,8 @@ The project lives in the GitHub repo **hzisow/digital-bulletin-board**.
 2. Import the `digital-bulletin-board` repo
 3. Framework Preset: **Other**, leave build settings blank → **Deploy**
 4. You get a public URL like `https://digital-bulletin-board.vercel.app`
+   If yours is different, update the three absolute `https://digital-bulletin-board.vercel.app` references in the
+   `<head>` of `index.html` (`og:url`, `og:image`, `twitter:image`) so shared links show the preview image.
 
 No redirect-URL configuration is needed (we use password auth, not magic links).
 
