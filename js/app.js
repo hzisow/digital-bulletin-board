@@ -116,7 +116,7 @@
 
   var ICON = {
     cal: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
-    pin: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
+    loc: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
     edit: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
     trash: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
     ig: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>',
@@ -251,7 +251,7 @@
       '</div>';
     var meta = "";
     if (e.date) meta += '<div class="row">'+ICON.cal+'<span>'+esc(formatDate(e.date, e.time))+'</span></div>';
-    if (e.location) meta += '<div class="row">'+ICON.pin+'<span>'+esc(e.location)+'</span></div>';
+    if (e.location) meta += '<div class="row">'+ICON.loc+'<span>'+esc(e.location)+'</span></div>';
     var igFlag = e.igRequest
       ? (e.igPosted
           ? '<div class="ig-flag posted">'+ICON.ig+'Featured on Instagram</div>'
@@ -441,7 +441,7 @@
     function renderList() {
       if (!items.length) { close(); return; }
       box.innerHTML = items.map(function (it, i) {
-        return '<div class="ac-item" data-i="' + i + '"><span class="pin">' + ICON.pin + '</span>' +
+        return '<div class="ac-item" data-i="' + i + '"><span class="pin">' + ICON.loc + '</span>' +
           '<span class="txt"><span class="main">' + esc(it.main) + '</span>' +
           (it.sub ? '<span class="sub">' + esc(it.sub) + '</span>' : '') + '</span></div>';
       }).join("");
@@ -487,7 +487,7 @@
   function popupHTML(e) {
     var img = (e.photos && e.photos[0]) ? '<div class="pp-img" style="background-image:url(\''+e.photos[0].replace(/'/g,"%27")+'\')"></div>' : '';
     var when = e.date ? '<div class="pp-meta">'+ICON.cal+'<span>'+esc(formatDate(e.date, e.time))+'</span></div>' : '';
-    var where = e.location ? '<div class="pp-meta">'+ICON.pin+'<span>'+esc(e.location)+'</span></div>' : '';
+    var where = e.location ? '<div class="pp-meta">'+ICON.loc+'<span>'+esc(e.location)+'</span></div>' : '';
     var link = e.link ? '<a href="'+esc(e.link)+'" target="_blank" rel="noopener">Sign up / Info &rarr;</a>' : '';
     return '<div class="pp">'+img+'<div class="pp-body">'+
       '<div class="pp-cat">'+esc(e.category)+'</div>'+
@@ -562,7 +562,7 @@
       : '<div class="card-photo"><div class="frame"></div>'+catLabel+dateTab+'</div>';
     var meta = "";
     if (e.date) meta += '<div class="row">'+ICON.cal+'<span>'+esc(formatDate(e.date, e.time))+'</span></div>';
-    if (e.location) meta += '<div class="row">'+ICON.pin+'<span>'+esc(e.location)+'</span></div>';
+    if (e.location) meta += '<div class="row">'+ICON.loc+'<span>'+esc(e.location)+'</span></div>';
     var igFlag = e.igRequest
       ? (e.igPosted ? '<div class="ig-flag posted">'+ICON.ig+'Featured on Instagram</div>' : '<div class="ig-flag">'+ICON.ig+'Instagram feature requested</div>')
       : '';
