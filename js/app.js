@@ -40,6 +40,7 @@
     // migrate single `photo` -> `photos` array; ensure fields exist
     if (!Array.isArray(e.photos)) e.photos = e.photo ? [e.photo] : [];
     delete e.photo;
+    e.photos = safePhotos(e.photos);
     if (typeof e.lat !== "number") e.lat = null;
     if (typeof e.lng !== "number") e.lng = null;
     if (typeof e.pinned !== "boolean") e.pinned = false;
@@ -78,6 +79,22 @@
   function $(id) { return document.getElementById(id); }
   function esc(s) {
     return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+  }
+  // Photo URLs end up inside style="background-image:url('…')", so they must be
+  // provably inert. Cloud mode accepts only our own Storage bucket with the path
+  // charset the uploader produces; local mode accepts only base64 image data URLs.
+  // Anything else is dropped — a member can write arbitrary strings into photos[]
+  // through the REST API, bypassing the upload path entirely.
+  function safePhotoUrl(u) {
+    u = String(u == null ? "" : u);
+    if (USE_CLOUD) {
+      var prefix = SUPABASE_URL + "/storage/v1/object/public/" + BUCKET + "/";
+      return (u.indexOf(prefix) === 0 && /^[A-Za-z0-9._\-\/]+$/.test(u.slice(prefix.length))) ? u : "";
+    }
+    return /^data:image\/[a-z0-9.+-]+;base64,[A-Za-z0-9+\/=]+$/i.test(u) ? u : "";
+  }
+  function safePhotos(list) {
+    return (Array.isArray(list) ? list : []).map(safePhotoUrl).filter(Boolean);
   }
   function uid() { return "e" + Math.random().toString(36).slice(2,10) + Date.now().toString(36); }
   var MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -264,7 +281,7 @@
   function showPhotos() {
     var wrap = $("photoThumbs");
     wrap.innerHTML = state.photos.map(function (src, i) {
-      return '<div class="thumb"><img src="'+src+'" alt="photo '+(i+1)+'" />'+
+      return '<div class="thumb"><img src="'+esc(src)+'" alt="photo '+(i+1)+'" />'+
         (i === 0 ? '<span class="cover-tag">Cover</span>' : '')+
         '<button type="button" class="x" data-rm="'+i+'" aria-label="Remove">&times;</button></div>';
     }).join("");
@@ -628,7 +645,7 @@
       date: r.date || "", time: r.time || "", location: r.location || "",
       lat: (typeof r.lat === "number") ? r.lat : null, lng: (typeof r.lng === "number") ? r.lng : null,
       description: r.description || "", link: r.link || "", igRequest: !!r.ig_request, igPosted: !!r.ig_posted,
-      pinned: !!r.pinned, photos: r.photos || [], created: r.created_at ? new Date(r.created_at).getTime() : 0
+      pinned: !!r.pinned, photos: safePhotos(r.photos), created: r.created_at ? new Date(r.created_at).getTime() : 0
     };
   }
   function toRow(d, photos) {
