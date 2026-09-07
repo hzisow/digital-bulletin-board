@@ -9,7 +9,7 @@
     "Workshop": "#d2691e", "Other": "#677189"
   };
 
-  var state = { events: [], search: "", chapter: "", category: "", sort: "soonest", range: "upcoming", view: "list", photos: [] };
+  var state = { events: [], search: "", chapter: "", category: "", sort: "soonest", range: "upcoming", view: "list", mine: false, photos: [] };
   var locPick = null;            // {label, lat, lng} captured from the address autocomplete
   var map = null, markerLayer = null, geoCache = {};
   var pendingEventId = null;   // event id from a shared ?event=... link
@@ -160,6 +160,7 @@
   function filtered() {
     var q = state.search.trim().toLowerCase();
     var list = state.events.filter(function (e) {
+      if (state.mine && !(currentUser && e.user_id === currentUser.id)) return false;
       if (state.chapter && e.chapter !== state.chapter) return false;
       if (state.category && e.category !== state.category) return false;
       if (!inRange(e)) return false;
@@ -190,9 +191,10 @@
       board.innerHTML = ""; empty.style.display = "block"; mapWrap.style.display = "none"; $("countLine").textContent = ""; return;
     }
     empty.style.display = "none";
-    var filtering = !!(state.search.trim() || state.chapter || state.category);
+    var filtering = !!(state.search.trim() || state.chapter || state.category || state.mine);
     var n = list.length, noun = n === 1 ? " event" : " events";
     $("countLine").textContent =
+      state.mine ? n + noun + " you posted" :
       (!filtering && state.range === "upcoming") ? n + " upcoming" + noun :
       (n !== state.events.length) ? n + noun + " matching your filters" :
       n + noun + " on the board";
@@ -200,14 +202,24 @@
     if (isMap) { renderMap(list); return; }
 
     if (list.length === 0) {
-      board.innerHTML = '<div class="empty-state" style="grid-column:1/-1">' +
-        ((!filtering && state.range === "upcoming")
-          ? '<h3>Nothing upcoming right now</h3><p><a href="#" data-range="past">See past events</a> or <a href="#" data-range="all">show everything</a> &mdash; or be the first chapter to post one.</p>'
-          : '<h3>No matches</h3><p>Try clearing the search or filters.</p>') +
-        '</div>';
+      var emptyHTML;
+      if (state.mine) {
+        var mineTotal = state.events.filter(function (e) { return currentUser && e.user_id === currentUser.id; }).length;
+        emptyHTML = mineTotal
+          ? '<h3>None of your events match</h3><p><a href="#" data-range="all" data-clear="1">Show all ' + mineTotal + ' of your events</a></p>'
+          : '<h3>You haven\'t posted any events yet</h3><p>Click <strong>Post an Event</strong> to add your chapter\'s first one.</p>';
+      } else if (!filtering && state.range === "upcoming") {
+        emptyHTML = '<h3>Nothing upcoming right now</h3><p><a href="#" data-range="past">See past events</a> or <a href="#" data-range="all">show everything</a> &mdash; or be the first chapter to post one.</p>';
+      } else {
+        emptyHTML = '<h3>No matches</h3><p>Try clearing the search or filters.</p>';
+      }
+      board.innerHTML = '<div class="empty-state" style="grid-column:1/-1">' + emptyHTML + '</div>';
       Array.prototype.forEach.call(board.querySelectorAll("[data-range]"), function (a) {
         a.addEventListener("click", function (ev) {
-          ev.preventDefault(); state.range = a.getAttribute("data-range"); $("rangeSelect").value = state.range; render();
+          ev.preventDefault();
+          state.range = a.getAttribute("data-range"); $("rangeSelect").value = state.range;
+          if (a.hasAttribute("data-clear")) { state.search = ""; state.chapter = ""; state.category = ""; $("searchInput").value = ""; $("chapterFilter").value = ""; }
+          render();
         });
       });
       return;
@@ -740,6 +752,12 @@
   // Member sign-in / sign-up (in the header)
   function applyMemberUI() {
     var el = $("authArea"); if (!el) return;
+    var signedIn = !!(USE_CLOUD && currentUser), mb = $("mineBtn");
+    if (mb) mb.style.display = signedIn ? "inline-flex" : "none";
+    if (!signedIn && state.mine) {   // signed out while filtering to own events
+      state.mine = false;
+      if (mb) { mb.classList.remove("active"); mb.setAttribute("aria-pressed", "false"); }
+    }
     if (!USE_CLOUD) { el.innerHTML = ""; return; }
     if (currentUser) {
       var who = isAdmin ? "Admin" : currentUser.email;
@@ -1017,6 +1035,11 @@
       var b = e.target.closest("[data-view]"); if (!b) return;
       state.view = b.getAttribute("data-view");
       Array.prototype.forEach.call($("viewToggle").querySelectorAll(".vt"), function (v) { v.classList.toggle("active", v === b); });
+      render();
+    });
+    $("mineBtn").addEventListener("click", function () {
+      state.mine = !state.mine;
+      this.classList.toggle("active", state.mine); this.setAttribute("aria-pressed", String(state.mine));
       render();
     });
 

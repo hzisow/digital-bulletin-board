@@ -491,6 +491,10 @@
   .field.invalid input, .field.invalid textarea { border-color: var(--danger); background: #fdf6f5; }
   .field.invalid .err-msg { display: block; }
 
+  /* ---------- My events toggle ---------- */
+  .mine-btn { padding: 10px 15px; font-size: .9rem; }
+  .mine-btn.active { background: var(--deca-blue); color: #fff; border-color: var(--deca-blue); }
+
   /* ---------- Toast variants ---------- */
   .toast.error { background: var(--danger); }
 
