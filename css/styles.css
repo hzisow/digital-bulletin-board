@@ -179,7 +179,7 @@
   .card {
     background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg);
     overflow: hidden; display: flex; flex-direction: column;
-    box-shadow: var(--shadow-sm);
+    box-shadow: var(--shadow-sm); cursor: pointer;
     transition: box-shadow .18s ease, border-color .18s ease, transform .18s ease;
   }
   .card:hover { box-shadow: var(--shadow-md); border-color: #d3dae8; transform: translateY(-2px); }
@@ -237,8 +237,16 @@
   }
   .card-chapter .dia { width: .5em; height: .5em; }
   .card-title { font-size: 1.18rem; font-weight: 700; line-height: 1.25; margin: 0 0 11px; letter-spacing: -.01em; }
-  .card-title[data-detail] { cursor: pointer; }
-  .card-title[data-detail]:hover { color: var(--deca-blue); }
+  /* The heading is a real button so the card is reachable by keyboard; it looks
+     like plain text, and the whole card shares its hover colour. */
+  .card-title .title-btn {
+    font: inherit; color: inherit; letter-spacing: inherit; text-align: left;
+    background: none; border: none; padding: 0; cursor: pointer;
+  }
+  .card:hover .card-title .title-btn { color: var(--deca-blue); }
+  /* ...except while the pointer is on a footer control, which does its own thing. */
+  .card:hover:has(.card-foot:hover) .card-title .title-btn { color: inherit; }
+  .card-title .title-btn:focus-visible { outline: 2px solid var(--deca-blue); outline-offset: 3px; border-radius: 3px; }
   .card-meta { display: flex; flex-direction: column; gap: 6px; font-size: .86rem; color: var(--muted); margin-bottom: 12px; }
   .card-meta .row { display: flex; align-items: center; gap: 9px; }
   .card-meta svg { flex-shrink: 0; color: #9aa3b6; }
@@ -362,7 +370,8 @@
     background: rgba(0,20,46,.72); color: #fff; font-size: .74rem; font-weight: 600;
     padding: 4px 9px; border-radius: var(--r-sm); display: inline-flex; align-items: center; gap: 6px; backdrop-filter: blur(2px);
   }
-  .card-photo.has-img { cursor: zoom-in; }
+  /* On the board the photo is part of the card (pointer, inherited); only the
+     detail view's hero opens the lightbox, and it keeps the zoom-in cursor. */
 
   /* pinned */
   .pin-badge {

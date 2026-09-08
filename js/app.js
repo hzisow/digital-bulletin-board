@@ -260,8 +260,17 @@
     Array.prototype.forEach.call(board.querySelectorAll("[data-share]"), function (b) { b.addEventListener("click", function () { shareEvent(b.getAttribute("data-share")); }); });
     Array.prototype.forEach.call(board.querySelectorAll("[data-cal]"), function (b) { b.addEventListener("click", function () { openCalMenu(b, b.getAttribute("data-cal")); }); });
     Array.prototype.forEach.call(board.querySelectorAll("[data-pin]"), function (b) { b.addEventListener("click", function () { togglePin(b.getAttribute("data-pin")); }); });
-    Array.prototype.forEach.call(board.querySelectorAll("[data-photos]"), function (el) { el.addEventListener("click", function () { openLightbox(el.getAttribute("data-photos")); }); });
     Array.prototype.forEach.call(board.querySelectorAll("[data-detail]"), function (el) { el.addEventListener("click", function () { openDetail(el.getAttribute("data-detail")); }); });
+    // The whole card opens the event. Clicks landing on a real control (the
+    // sign-up link, the footer buttons, the title button) are left to their own
+    // handlers, and a click that finishes a text selection is not a navigation.
+    Array.prototype.forEach.call(board.querySelectorAll("[data-card]"), function (card) {
+      card.addEventListener("click", function (ev) {
+        if (ev.target.closest("a, button, input, select, textarea, label")) return;
+        if (window.getSelection && String(window.getSelection())) return;
+        openDetail(card.getAttribute("data-card"));
+      });
+    });
   }
   function cardHTML(e) {
     var color = CAT_COLOR[e.category] || CAT_COLOR.Other;
@@ -272,9 +281,11 @@
     var countBadge = photos.length > 1
       ? '<span class="photo-count"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>'+photos.length+'</span>'
       : '';
-    var photoAttr = hasImg ? ' data-photos="'+e.id+'"' : '';
     var pinnedBadge = e.pinned ? '<span class="pin-badge">'+ICON.pin+'Pinned</span>' : '';
-    var photo = '<div class="card-photo'+(hasImg?' has-img':'')+'"'+photoStyle+photoAttr+'>'+
+    // Deliberately no data-photos: on the board the photo is just part of the
+    // card's click target and opens the event. The lightbox opens from the
+    // hero photo in the detail view instead.
+    var photo = '<div class="card-photo'+(hasImg?' has-img':'')+'"'+photoStyle+'>'+
         '<div class="frame"></div>'+
         '<span class="cat-label"><span class="dot" style="background:'+color+'"></span>'+esc(e.category)+'</span>'+
         dateTab + countBadge + pinnedBadge +
@@ -298,10 +309,10 @@
       ? '<button class="icon-btn" data-edit="'+e.id+'" title="Edit">'+ICON.edit+'</button>'+
         '<button class="icon-btn del" data-del="'+e.id+'" title="Delete">'+ICON.trash+'</button>'
       : '';
-    return '<article class="card'+(e.pinned?' card-pinned':'')+'">'+photo+
+    return '<article class="card'+(e.pinned?' card-pinned':'')+'" data-card="'+e.id+'">'+photo+
       '<div class="card-body">'+
         '<div class="card-chapter"><span class="dia"></span>'+esc(e.chapter)+'</div>'+
-        '<h3 class="card-title" data-detail="'+e.id+'">'+esc(e.title)+'</h3>'+
+        '<h3 class="card-title"><button type="button" class="title-btn" data-detail="'+e.id+'">'+esc(e.title)+'</button></h3>'+
         (meta ? '<div class="card-meta">'+meta+'</div>' : '')+
         '<p class="card-desc">'+esc(e.description)+'</p>'+
         igFlag+
