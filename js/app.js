@@ -153,7 +153,8 @@
     pin: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14l-1.6-2.4a2 2 0 0 1-.4-1.2V8a2 2 0 0 1 2-2V4H6v2a2 2 0 0 1 2 2v5.4a2 2 0 0 1-.4 1.2L6 17"/></svg>',
     logout: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',
     user: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
-    check: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+    check: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+    expand: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>'
   };
 
   function rebuildChapterFilter() {
@@ -688,7 +689,12 @@
     if (!e) return;
     var photos = e.photos || [], color = CAT_COLOR[e.category] || CAT_COLOR.Other;
     var dateTab = dateTabHTML(e);
-    var countBadge = photos.length > 1 ? '<span class="photo-count">'+photos.length+' photos</span>' : '';
+    // Always label the hero when there is a photo. On touch there is no cursor
+    // to signal that it opens, and a single photo has no count to show — so
+    // without this the tap target is invisible.
+    var countBadge = photos.length
+      ? '<span class="photo-count">'+ICON.expand+(photos.length > 1 ? photos.length+' photos' : 'View photo')+'</span>'
+      : '';
     var catLabel = '<span class="cat-label"><span class="dot" style="background:'+color+'"></span>'+esc(e.category)+'</span>';
     var hero = photos.length
       ? '<div class="card-photo has-img" style="background-image:url(\''+photos[0].replace(/'/g,"%27")+'\')" data-photos="'+e.id+'"><div class="frame"></div>'+catLabel+dateTab+countBadge+'</div>'
@@ -1132,7 +1138,16 @@
     $("closeBtn").addEventListener("click", closeModal);
     $("cancelBtn").addEventListener("click", closeModal);
     $("overlay").addEventListener("click", function (e) { if (e.target === $("overlay")) closeModal(); });
-    document.addEventListener("keydown", function (e) { if (e.key === "Escape") { closeModal(); closeAdmin(); closeMember(); closeIg(); closeDetail(); closeConfirm(false); closeCalMenu(); } });
+    // Escape peels off one layer at a time, topmost first, so dismissing the
+    // lightbox returns you to the event you opened it from rather than all the
+    // way back to the board.
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "Escape") return;
+      if ($("lightbox").classList.contains("open")) return;   // the lightbox closes itself, below
+      if (calFor) { closeCalMenu(); return; }
+      if ($("confirmOverlay").classList.contains("open")) { closeConfirm(false); return; }
+      closeModal(); closeAdmin(); closeMember(); closeIg(); closeDetail();
+    });
     $("eventForm").addEventListener("submit", handleSubmit);
     // the end date can't come before the start date
     $("f_date").addEventListener("change", function () {
