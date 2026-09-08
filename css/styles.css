@@ -323,7 +323,15 @@
   footer .flinks { display: flex; gap: 22px; font-size: .9rem; flex-wrap: wrap; }
   footer .flinks a { color: #cdd9f0; text-decoration: none; }
   footer .flinks a:hover { color: #fff; }
-  footer .fnote { width: 100%; border-top: 1px solid rgba(255,255,255,.12); padding-top: 16px; font-size: .8rem; color: #8aa0c8; }
+  footer .fnote {
+    width: 100%; border-top: 1px solid rgba(255,255,255,.12); padding-top: 16px;
+    font-size: .8rem; color: #8aa0c8;
+    /* Stacked and left-aligned on purpose: the admin button is fixed to the
+       bottom-right corner, so anything sitting there gets covered at the
+       bottom of the page. */
+    display: flex; flex-direction: column; align-items: flex-start; gap: 5px;
+  }
+  footer .fcredit { color: #75899f; }   /* quieter than the note above it */
 
   /* ---------- View toggle ---------- */
   .viewtoggle { display: inline-flex; border: 1px solid var(--line); border-radius: var(--r-sm); overflow: hidden; background: #fff; }
