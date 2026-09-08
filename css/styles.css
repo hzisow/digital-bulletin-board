@@ -200,7 +200,16 @@
     background: url("../deca-diamond-white.png") -14px -16px / 100px 100px repeat;
     opacity: .07;
   }
-  .card-photo.has-img { background-image: none; }
+  /* The photo arrives as an inline background-image, so this element drops to a
+     single layer — and the two-layer sizing above would hand it the first value
+     (64px, meant for the diamond watermark) instead of covering the card. Reset
+     the layer properties, the way .ig-thumb.has-img already does. */
+  .card-photo.has-img {
+    background-image: none;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
   .card-photo.has-img::before { display: none; }
   .card-photo .frame { position: absolute; inset: 0; box-shadow: inset 0 -40px 50px -30px rgba(0,0,0,.35); }
   .cat-label {
