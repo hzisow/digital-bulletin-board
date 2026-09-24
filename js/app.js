@@ -165,13 +165,16 @@
     sel.value = current;
   }
   function rebuildTabs() {
+    var pool = state.events.filter(function (e) { return matches(e, "category"); });
     var counts = {};
-    state.events.forEach(function (e) { counts[e.category] = (counts[e.category]||0)+1; });
-    var html = '<button class="tab '+(state.category===""?"active":"")+'" data-cat="">All <span class="count">'+state.events.length+'</span></button>';
+    pool.forEach(function (e) { counts[e.category] = (counts[e.category]||0)+1; });
+    var html = '<button class="tab '+(state.category===""?"active":"")+'" data-cat="">All <span class="count">'+pool.length+'</span></button>';
     CATEGORIES.forEach(function (c) {
-      if (!counts[c]) return;
+      // Hide empty categories, but never the selected one — otherwise switching
+      // to a range where it has no events would strand you on an invisible tab.
+      if (!counts[c] && state.category !== c) return;
       html += '<button class="tab '+(state.category===c?"active":"")+'" data-cat="'+esc(c)+'">'+
-        '<span class="dot" style="background:'+CAT_COLOR[c]+'"></span>'+esc(c)+' <span class="count">'+counts[c]+'</span></button>';
+        '<span class="dot" style="background:'+CAT_COLOR[c]+'"></span>'+esc(c)+' <span class="count">'+(counts[c]||0)+'</span></button>';
     });
     $("catTabs").innerHTML = html;
   }
@@ -188,19 +191,23 @@
     if (state.range === "month") return ed >= 0 && sd <= 30;
     return true;
   }
-  function filtered() {
+  // One definition of "shown", shared by the board and every count on the page,
+  // so the numbers can't drift from the cards. `skip` drops one filter: the
+  // category tabs count what each tab *would* show, so they ignore the category.
+  function matches(e, skip) {
+    if (state.mine && !(currentUser && e.user_id === currentUser.id)) return false;
+    if (state.chapter && e.chapter !== state.chapter) return false;
+    if (skip !== "category" && state.category && e.category !== state.category) return false;
+    if (!inRange(e)) return false;
     var q = state.search.trim().toLowerCase();
-    var list = state.events.filter(function (e) {
-      if (state.mine && !(currentUser && e.user_id === currentUser.id)) return false;
-      if (state.chapter && e.chapter !== state.chapter) return false;
-      if (state.category && e.category !== state.category) return false;
-      if (!inRange(e)) return false;
-      if (q) {
-        var hay = (e.title+" "+e.chapter+" "+e.description+" "+(e.location||"")+" "+e.category).toLowerCase();
-        if (hay.indexOf(q) === -1) return false;
-      }
-      return true;
-    });
+    if (q) {
+      var hay = (e.title+" "+e.chapter+" "+e.description+" "+(e.location||"")+" "+e.category).toLowerCase();
+      if (hay.indexOf(q) === -1) return false;
+    }
+    return true;
+  }
+  function filtered() {
+    var list = state.events.filter(function (e) { return matches(e); });
     list.sort(function (a,b) {
       if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;   // pinned always first
       if (state.sort === "newest") return b.created - a.created;
@@ -212,8 +219,8 @@
   }
   function render() {
     rebuildChapterFilter(); rebuildTabs(); updateIgButton();
-    $("statNum").textContent = state.events.length;
     var list = filtered(), board = $("board"), empty = $("emptyState"), mapWrap = $("mapWrap");
+    $("statNum").textContent = list.length;   // the headline number is the cards you can see
     var isMap = state.view === "map";
     mapWrap.style.display = isMap ? "block" : "none";
     board.style.display = isMap ? "none" : "grid";
